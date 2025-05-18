@@ -1,0 +1,368 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Job Sentinel</title>
+    <meta name="description" content="Detect fake job postings with our AI-powered tool. Protect yourself from scams and fraudulent job offers before you apply." />
+    <meta name="author" content="Job Sentinel" />
+
+    <meta property="og:title" content="Fake Job Posting Detection Tool | Job Sentinel" />
+    <meta property="og:description" content="Detect fake job postings with our AI-powered tool. Stay safe from job scams." />
+    <meta property="og:type" content="website" />
+    
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛡️</text></svg>" type="image/svg+xml">
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+
+  <body>
+    <!-- Header Section -->
+    <header class="header">
+      <div class="container header-container">
+        <div class="logo">
+          <span class="logo-icon">🛡️</span>
+          <h1 class="logo-text">Job Sentinel</h1>
+        </div>
+        <nav class="main-nav">
+          <ul>
+            <li><a href="#verify">Verify Job</a></li>
+            <li><a href="#how-it-works">How It Works</a></li>
+            <li><a href="#examples">Examples</a></li>
+            <li><a href="#faq">FAQ</a></li>
+          </ul>
+        </nav>
+      </div>
+    </header>
+
+    <div class="container">
+      <!-- Hero Section -->
+      <section class="hero" id="hero">
+        <div class="hero-content">
+          <div class="hero-icon">🛡️</div>
+          <h1 class="hero-title">Protect Yourself From<br/> Job Scams</h1>
+          <p class="hero-description">
+            Our AI-powered tool analyzes job postings to identify potential scams and protect your career journey.
+          </p>
+          <div class="hero-features">
+            <div class="hero-feature">
+              <span class="feature-icon">🔍</span>
+              <span>Scan job postings for red flags</span>
+            </div>
+            <div class="hero-feature">
+              <span class="feature-icon">⚠️</span>
+              <span>Identify scam indicators</span>
+            </div>
+          </div>
+        </div>
+      </section>
+      
+      <!-- Main Tool Section -->
+      <section class="verify-section" id="verify">
+        <div class="verify-card">
+          <div class="card-header">
+            <h2 class="section-title py-3 text-blue-700">FAKE JOB POSTING DETECTION PLATFORM</h2>
+            <p class="section-subtitle">
+              Protect yourself from scams by verifying job postings before applying
+            </p>
+                      <div class="flex justify-center py-6">
+            <div class="bg-white shadow-xl rounded-2xl w-full max-w-3xl">
+              <!-- <h1 class="text-3xl font-bold text-center text-blue-700 mb-6">
+                Fake Job Posting Detection
+              </h1> -->
+          
+              <form method="POST" class="space-y-4">
+                <textarea
+                  id="job_text"
+                  name="job_text"
+                  rows="15"
+                  class="w-full min-h-[180px] p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="e.g., We are hiring for a data entry role. Work from home, no experience needed..."
+                >{{ job_text }}</textarea>
+          
+                <button
+                  type="submit"
+                  class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition duration-200"
+                >
+                  Detect
+                </button>
+              </form>
+          
+              {% if prediction %}
+                <div class="mt-6 text-xl font-semibold text-center text-white py-3 rounded-lg {{ 'bg-red-500' if 'Fake' in prediction else 'bg-green-500' }}">
+                  {{ prediction }}
+                </div>
+              {% endif %}
+            </div>
+          </div>
+          </div>
+          
+
+      </section>
+
+      <!-- Example Cards Section -->
+      <section class="examples-section" id="examples">
+        <h2 class="section-title">Example Job Postings</h2>
+        
+        <div class="example-cards">
+          <div class="example-card fake">
+            <div class="example-header">
+              <span class="example-icon">❌</span>
+              <span class="example-label">Fake Job Example</span>
+            </div>
+            <div class="example-body">
+              <h3 class="example-title">DATA ENTRY - $35/hr - WORK FROM HOME - URGENT!!</h3>
+              <p class="example-description">Easy work from home opportunity! Make $35/hour with flexible schedule. No experience needed! Immediate start. Just need your bank details for payment setup. CONTACT NOW before positions fill up!</p>
+              
+              <div>
+                <h4 class="flags-title">Red Flags</h4>
+                <ul class="flags-list">
+                  <li>Unrealistic pay</li>
+                  <li>Urgency tactics</li>
+                  <li>Requests for financial information</li>
+                  <li>No experience needed for high pay</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div class="example-card legitimate">
+            <div class="example-header">
+              <span class="example-icon">✅</span>
+              <span class="example-label">Legitimate Job Example</span>
+            </div>
+            <div class="example-body">
+              <h3 class="example-title">Junior Software Developer - ABC Technology Solutions</h3>
+              <p class="example-description">ABC Technology Solutions is seeking a Junior Software Developer to join our growing team. Requirements: Bachelor's degree in CS or related field, 1-2 years experience with JavaScript and React. Located in our Bangalore office with hybrid work options. Competitive salary based on experience.</p>
+              
+              <div>
+                <h4 class="flags-title">Green Flags</h4>
+                <ul class="flags-list">
+                  <li>Clear company name</li>
+                  <li>Specific requirements</li>
+                  <li>Realistic qualifications</li>
+                  <li>Location information</li>
+                  <li>No requests for personal information</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      
+      <!-- Red Flags Section -->
+      <section class="red-flags-section" id="how-it-works">
+        <h2 class="section-title">
+          <span class="alert-icon">⚠️</span>
+          Common Red Flags in Fake Job Postings
+        </h2>
+        
+        <div class="red-flags-grid">
+          <div class="red-flag-card">
+            <div class="flag-icon">💰</div>
+            <h3 class="flag-title">Unrealistic Salary</h3>
+            <p class="flag-description">High pay with minimal qualifications or experience required</p>
+          </div>
+
+          <div class="red-flag-card">
+            <div class="flag-icon">⏰</div>
+            <h3 class="flag-title">Urgency Tactics</h3>
+            <p class="flag-description">Pressure to respond quickly or lose the opportunity</p>
+          </div>
+
+          <div class="red-flag-card">
+            <div class="flag-icon">📝</div>
+            <h3 class="flag-title">Vague Job Description</h3>
+            <p class="flag-description">Lack of specific responsibilities, requirements, or company details</p>
+          </div>
+
+          <div class="red-flag-card">
+            <div class="flag-icon">📧</div>
+            <h3 class="flag-title">Unprofessional Communication</h3>
+            <p class="flag-description">Emails with grammar errors or from personal accounts</p>
+          </div>
+
+          <div class="red-flag-card">
+            <div class="flag-icon">👤</div>
+            <h3 class="flag-title">Personal Information Requests</h3>
+            <p class="flag-description">Early requests for bank details, ID numbers, or other sensitive data</p>
+          </div>
+
+          <div class="red-flag-card">
+            <div class="flag-icon">🌐</div>
+            <h3 class="flag-title">No Web Presence</h3>
+            <p class="flag-description">Company has no website or social media profiles</p>
+          </div>
+        </div>
+      </section>
+      
+      <!-- Statistics Section -->
+      <section class="statistics-section">
+        <h2 class="section-title">Job Scam Statistics</h2>
+        
+        <div class="statistics-grid">
+          <div class="stat-card blue">
+            <div class="stat-icon">📊</div>
+            <h3 class="stat-number">14%</h3>
+            <p class="stat-description">Of job seekers have encountered a scam</p>
+          </div>
+
+          <div class="stat-card purple">
+            <div class="stat-icon">💸</div>
+            <h3 class="stat-number">$2000+</h3>
+            <p class="stat-description">Average loss per job scam victim</p>
+          </div>
+
+          <div class="stat-card orange">
+            <div class="stat-icon">🏠</div>
+            <h3 class="stat-number">71%</h3>
+            <p class="stat-description">Of scams promise "work from home"</p>
+          </div>
+
+          <div class="stat-card teal">
+            <div class="stat-icon">📈</div>
+            <h3 class="stat-number">81%</h3>
+            <p class="stat-description">Increase in job scams since 2020</p>
+          </div>
+        </div>
+      </section>
+      
+      <!-- Testimonials Section -->
+      <section class="testimonials-section">
+        <h2 class="section-title">Success Stories</h2>
+        
+        <div class="testimonial-carousel">
+          <div class="testimonial-container">
+            <div class="testimonial active">
+              <div class="testimonial-stars">★★★★★</div>
+              <p class="testimonial-text">"This tool saved me from applying to a potential scam! The job promised high salary for minimal qualifications which seemed too good to be true. The detector flagged it as suspicious, and after more research, I found it was indeed fraudulent."</p>
+              <div class="testimonial-author">Raj Kumar</div>
+              <div class="testimonial-role">Software Developer</div>
+            </div>
+            
+            <div class="testimonial">
+              <div class="testimonial-stars">★★★★★</div>
+              <p class="testimonial-text">"I was almost tricked by a professional looking job posting until I ran it through this detector. It flagged several red flags I hadn't noticed. Very grateful for this service!"</p>
+              <div class="testimonial-author">Priya Sharma</div>
+              <div class="testimonial-role">Marketing Professional</div>
+            </div>
+            
+            <div class="testimonial">
+              <div class="testimonial-stars">★★★★☆</div>
+              <p class="testimonial-text">"As a fresh graduate, I was applying to many positions and almost fell for a scam. This tool helped me identify suspicious postings and saved me from providing personal information to scammers."</p>
+              <div class="testimonial-author">Amit Patel</div>
+              <div class="testimonial-role">Recent Graduate</div>
+            </div>
+            
+            <div class="testimonial">
+              <div class="testimonial-stars">★★★★★</div>
+              <p class="testimonial-text">"We recommend this tool to all job seekers. It helps identify potential scams and ensures people are applying to legitimate opportunities. Great service for the community!"</p>
+              <div class="testimonial-author">Sneha Gupta</div>
+              <div class="testimonial-role">HR Manager</div>
+            </div>
+          </div>
+          
+          <div class="carousel-controls">
+            <button class="carousel-prev">◀</button>
+            <button class="carousel-next">▶</button>
+          </div>
+        </div>
+      </section>
+      
+      <!-- FAQ Section -->
+      <section class="faq-section" id="faq">
+        <h2 class="section-title">
+          <span class="faq-icon">❓</span>
+          Frequently Asked Questions
+        </h2>
+        
+
+          
+          <div class="accordion-item">
+            <div class="accordion-header">Can I check a job posting URL directly?</div>
+            <div class="accordion-content">
+              <p>Yes! Our tool can analyze both job descriptions that you paste and direct URLs to job postings on major job sites and company career pages.</p>
+            </div>
+          </div>
+          
+          <div class="accordion-item">
+            <div class="accordion-header">Is my data secure when I use this tool?</div>
+            <div class="accordion-content">
+              <p>Absolutely. We don't store any job descriptions or URLs you submit longer than needed for analysis. All data is encrypted and handled according to strict privacy standards.</p>
+            </div>
+          </div>
+          
+          <div class="accordion-item">
+            <div class="accordion-header">What are common signs of a fake job posting?</div>
+            <div class="accordion-content">
+              <p>Common signs include unrealistic salary offers, requests for upfront payments, vague job descriptions, poor grammar/spelling, personal email domains, and pressure to respond quickly.</p>
+            </div>
+          </div>
+          
+          <div class="accordion-item">
+            <div class="accordion-header">What should I do if I've already applied to a scam job?</div>
+            <div class="accordion-content">
+              <p>If you suspect you've applied to a scam, stop all communication immediately. If you've shared financial information, contact your bank. Consider reporting the scam to authorities and job boards.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+    
+    <!-- Footer -->
+    <footer class="footer">
+      <div class="container footer-content">
+        <div class="footer-brand">
+          <div class="footer-logo">
+            <span class="logo-icon">🛡️</span>
+            <h3 class="footer-title">Job Sentinel</h3>
+          </div>
+          <p class="footer-description">
+            Protecting job seekers from scams and fraudulent postings with our AI-powered detection tools.
+          </p>
+        </div>
+        
+        <div class="footer-links">
+          <div class="footer-column">
+            <h4 class="footer-heading"></h4>
+            <ul>
+              <li><a href="#"></a></li>
+              <li><a href="#"></a></li>
+              <li><a href="#"></a></li>
+            </ul>
+          </div>
+          
+          <div class="footer-column">
+            <h4 class="footer-heading">Company</h4>
+            <ul>
+              <li><a href="#">About Us</a></li>
+              <li><a href="#">Contact</a></li>
+              <li><a href="#">Privacy Policy</a></li>
+            </ul>
+          </div>
+          
+          <div class="footer-column">
+            <h4 class="footer-heading">Connect</h4>
+            <ul>
+              <li><a href="#">Twitter</a></li>
+              <li><a href="#">LinkedIn</a></li>
+              <li><a href="#">Instagram</a></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      
+      <div class="footer-bottom">
+        <p>© <span id="current-year">2024</span> Job Sentinel. All rights reserved.</p>
+      </div>
+    </footer>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+  </body>
+</html>
