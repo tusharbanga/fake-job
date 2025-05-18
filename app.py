@@ -22,14 +22,18 @@ def index():
         job_text = request.form.get("job_text", "")
         if job_text.strip() != "":
             text_vector = vectorizer.transform([job_text])
-            proba = model.predict_proba(text_vector)[0][1]  
-            confidence = proba * 100 
+            proba = model.predict_proba(text_vector)[0][1]
+            confidence = proba * 100
             result = 1 if proba > 0.4 else 0
-            prediction = f"Fake Job Posting (There's {confidence:.1f}%  chance that this job might be fake.)" if result == 1 else f"Genuine Job Posting (There's only {confidence:.1f}% chance that this job might be fake.)"
+            if result == 1:
+                prediction = f"Fake Job Posting (There's {confidence:.1f}% chance that this job might be fake.)"
+            else:
+                prediction = f"Genuine Job Posting (There's only {confidence:.1f}% chance that this job might be fake.)"
         else:
             prediction = "Please enter job description."
     return render_template("index.html", prediction=prediction, job_text=job_text)
 
 if __name__ == "__main__":
     print("Starting Flask app...")
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=True)
