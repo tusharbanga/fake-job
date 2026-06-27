@@ -1,0 +1,9 @@
+static/src/** linguist-vendored
+static/public/** linguist-vendored
+static/*.json linguist-vendored
+
+*.js linguist-vendored
+*.jsx linguist-vendored
+static/*.css linguist-vendored
+*.html linguist-vendored
+*.css linguist-vendored
