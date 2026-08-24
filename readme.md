@@ -168,3 +168,4 @@ Genuine Job Posting (There's only 18.4% chance that this job might be fake.)
 This project is intended for academic, educational, and research purposes.
 
 # JobLens
+24 August update
