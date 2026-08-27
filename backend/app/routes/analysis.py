@@ -1,26 +1,37 @@
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
-from .routes import analysis
+from ..schemas import AnalysisRequest
+from ..services.aggregator import analyze
+from ..services.matching import match_resume
+from ..services.resume_service import extract_text
 
-
-app = FastAPI(title="JobLens API", version="1.0.0")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-app.include_router(analysis.router)
+router = APIRouter(prefix="/analysis", tags=["analysis"])
 
 
-@app.get("/health")
-async def health():
-    return {
-        "status": "ok",
-        "ml_available": False,
-        "message": "ML model not configured",
-    }
+@router.post("/demo")
+async def analyze_demo(request: AnalysisRequest):
+    try:
+        result = await analyze(request.text)
+    except Exception as exc:
+        raise HTTPException(502, f"Analysis error: {exc}") from exc
+    return result
+
+
+@router.post("/demo-match")
+async def analyze_demo_match(
+    text: str = Form(...),
+    file: UploadFile = File(...),
+    job_skills: str = Form(default=""),
+):
+    try:
+        resume_text = extract_text(file.filename or "resume", await file.read())
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+    skills_list = (
+        [s for s in job_skills.split("||") if s.strip()]
+        if job_skills
+        else None
+    )
+
+    return match_resume(text, resume_text, skills_list)

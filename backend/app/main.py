@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from .routes import analysis
 
 app = FastAPI(title="JobLens API", version="1.0.0")
 
@@ -12,6 +13,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(analysis.router)
 
 @app.get("/health")
 async def health():
