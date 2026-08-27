@@ -1,4 +1,4 @@
-const API_BASE_URL = "http://127.0.0.1:8000";
+const API_BASE_URL = "https://fake-job-api-xeuu.onrender.com";
 
 export function openGoogleLogin() {
   window.open(`${API_BASE_URL}/auth/google/login`, "joblens-google-login", "width=520,height=680");
