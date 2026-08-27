@@ -1,19 +1,28 @@
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from .routes import analysis, auth, resumes
 
 
-class Settings(BaseSettings):
-    mongodb_uri: str = "mongodb://localhost:27017"
-    mongodb_database: str = "joblens"
-    jwt_secret: str = "change-me"
-    jwt_expires_minutes: int = 10080
-    google_client_id: str = ""
-    google_client_secret: str = ""
-    google_redirect_uri: str = "http://localhost:8000/auth/google/callback"
-    frontend_redirect_uri: str = "http://localhost:3000"
-    groq_api_key: str = ""
-    groq_model: str = "llama-3.3-70b-versatile"
-    max_resume_bytes: int = 5 * 1024 * 1024
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+app = FastAPI(title="JobLens API", version="1.0.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(auth.router)
+app.include_router(resumes.router)
+app.include_router(analysis.router)
 
 
-settings = Settings()
+@app.get("/health")
+async def health():
+    return {
+        "status": "ok",
+        "ml_available": False,
+        "message": "ML model not configured"
+    }
