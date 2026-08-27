@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "JobLens",
+  "version": "1.7.0",
+  "description": "Analyze selected job posting text with JobLens.",
+  "permissions": ["storage", "activeTab", "scripting"],
+  "host_permissions": ["http://localhost:8000/*", "http://127.0.0.1:8000/*", "http://127.0.0.1:5173/*"],
+  "content_security_policy": {"extension_pages": "script-src 'self'; object-src 'self'; frame-src http://127.0.0.1:5173"},
+  "background": {"service_worker": "background.js", "type": "module"},
+  "action": {"default_popup": "popup.html", "default_title": "JobLens"},
+  "content_scripts": [{"matches": ["<all_urls>"], "js": ["content.js"], "run_at": "document_idle"}]
+}
