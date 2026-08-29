@@ -1,160 +1,124 @@
+
+
 let debounceTimer = null;
 let panelFrame = null;
+let panelWindow = null;
 
 function showPanel(text) {
-  if (panelFrame) {
-    panelFrame.remove();
+  // Prefer injecting an inline iframe (restores previous UX). If injection fails
+  // (exceptions or popup/blocking), fall back to opening a popup window.
+  const url = `http://127.0.0.1:5173/?selection=${encodeURIComponent(text)}`;
+  try {
+    if (panelFrame && panelFrame.parentNode) panelFrame.remove();
+    panelFrame = document.createElement('iframe');
+    panelFrame.title = 'JobLens analysis';
+    panelFrame.src = url;
+    console.log('content.js: creating panel iframe with selection', text.slice(0, 100));
+    panelFrame.style.cssText = 'position:fixed;right:20px;bottom:20px;z-index:2147483647;width:360px;height:min(700px,calc(100vh - 40px));border:0;border-radius:22px;box-shadow:0 18px 48px #0003;background:#fff;';
+    document.body.appendChild(panelFrame);
+    // Clear any previous popup reference since iframe is primary now
+    try { if (panelWindow && !panelWindow.closed) panelWindow.close(); } catch {}
+    panelWindow = null;
+  } catch (err) {
+    console.warn('content.js: iframe injection failed, opening popup as fallback', err);
+    const features = 'width=420,height=700,menubar=no,toolbar=no,location=no,resizable=yes';
+    try {
+      if (!panelWindow || panelWindow.closed) {
+        panelWindow = window.open(url, 'joblens-panel', features);
+        console.log('content.js: opened panel window', url);
+      } else {
+        panelWindow.focus();
+        panelWindow.location = url;
+      }
+    } catch (err2) {
+      console.error('content.js: failed to open popup fallback', err2);
+    }
   }
-
-  panelFrame = document.createElement("iframe");
-
-  panelFrame.title = "JobLens analysis";
-
-  panelFrame.src =
-    `https://fake-job.vercel.app/?selection=${encodeURIComponent(text)}`;
-
-  panelFrame.style.cssText = `
-    position: fixed;
-    right: 20px;
-    bottom: 20px;
-    z-index: 2147483647;
-    width: 360px;
-    height: min(700px, calc(100vh - 40px));
-    border: 0;
-    border-radius: 22px;
-    box-shadow: 0 18px 48px #0003;
-    background: #fff;
-  `;
-
-  document.body.appendChild(panelFrame);
 }
 
 function scheduleAnalysis() {
   clearTimeout(debounceTimer);
-
-  const selection = window.getSelection();
-  const text = selection?.toString().trim();
-
+  const text = window.getSelection()?.toString().trim();
   if (!text) return;
-
-  debounceTimer = setTimeout(() => {
-    const currentSelection = window.getSelection();
-    const currentText = currentSelection?.toString().trim();
-
-    if (!currentText) return;
-
-    // Capture the text BEFORE clearing the browser selection
-    const textToAnalyze = currentText.slice(0, 20000);
-
-    // Clear the blue browser selection.
-    // This prevents the injected JobLens iframe from
-    // appearing blue when Cmd+A is used.
-    currentSelection.removeAllRanges();
-
-    // Open JobLens
-    showPanel(textToAnalyze);
-  }, 1000);
+  debounceTimer = setTimeout(() => showPanel(text.slice(0, 20000)), 2000);
 }
 
-// ----------------------------------------------------
-// TEXT SELECTION
-// ----------------------------------------------------
-
-// Normal mouse selection
+document.addEventListener("selectionchange", scheduleAnalysis);
 document.addEventListener("mouseup", scheduleAnalysis);
 
-// Cmd+A / Ctrl+A selection
-document.addEventListener("selectionchange", scheduleAnalysis);
+// Relay resume persistence between the JobLens iframe and chrome.storage.local.
+// The iframe (http://127.0.0.1:5173) cannot call chrome.storage directly since
+// it's not an extension page, and its own localStorage gets partitioned per
+// top-level site by the browser — so a resume saved on one job site would not
+// show up on another. chrome.storage.local is extension-scoped and global.
+window.addEventListener('message', (event) => {
+  // Accept messages from either the inline iframe (`panelFrame`) or the popup (`panelWindow`).
+  if (!(event.source === (panelFrame?.contentWindow) || event.source === panelWindow)) return;
+  const { type, payload, requestId } = event.data || {};
+  console.log('content.js: received message from panel', { type, requestId, payload });
 
+  const target = panelFrame?.contentWindow || panelWindow;
 
-// ----------------------------------------------------
-// RESUME STORAGE BRIDGE
-// ----------------------------------------------------
-//
-// The JobLens frontend is running inside an iframe:
-//
-// https://fake-job.vercel.app
-//
-// It cannot directly use chrome.storage.local because
-// it is a normal web page, not an extension page.
-//
-// So we communicate between iframe <-> content script
-// using window.postMessage().
-// ----------------------------------------------------
+  function sendMessage(message) {
+    try {
+      target?.postMessage(message, '*');
+    } catch (err) {
+      console.warn('content.js: postMessage failed', err);
+    }
+  }
 
-window.addEventListener("message", (event) => {
-  // Only accept messages from our JobLens iframe
-  if (event.source !== panelFrame?.contentWindow) {
+  if (!chrome?.storage?.local) {
+    console.warn('content.js: chrome.storage.local is unavailable; extension context may be invalidated');
     return;
   }
 
-  const {
-    type,
-    payload,
-    requestId
-  } = event.data || {};
-
-
-  // --------------------------------------------------
-  // SAVE RESUME
-  // --------------------------------------------------
-
-  if (type === "JOBLENS_SAVE_RESUME") {
-    chrome.storage.local.set(
-      {
-        joblensResume: payload
-      },
-      () => {
-        panelFrame?.contentWindow?.postMessage(
-          {
-            type: "JOBLENS_SAVE_RESUME_ACK",
-            requestId,
-            ok: !chrome.runtime.lastError
-          },
-          "*"
-        );
-      }
-    );
+  if (type === 'JOBLENS_SAVE_RESUME') {
+    try {
+      chrome.storage.local.set({ joblensResume: payload }, () => {
+        if (chrome.runtime?.lastError) {
+          console.warn('content.js: storage set failed', chrome.runtime.lastError.message);
+          return;
+        }
+        const ack = { type: 'JOBLENS_SAVE_RESUME_ACK', requestId, ok: true };
+        console.log('content.js: saving resume, posting ack', ack);
+        sendMessage(ack);
+      });
+    } catch (err) {
+      console.warn('content.js: failed to save resume to storage', err);
+    }
   }
 
-
-  // --------------------------------------------------
-  // GET RESUME
-  // --------------------------------------------------
-
-  if (type === "JOBLENS_GET_RESUME") {
-    chrome.storage.local.get(
-      ["joblensResume"],
-      (result) => {
-        panelFrame?.contentWindow?.postMessage(
-          {
-            type: "JOBLENS_RESUME_DATA",
-            requestId,
-            payload: result.joblensResume || null
-          },
-          "*"
-        );
-      }
-    );
+  if (type === 'JOBLENS_GET_RESUME') {
+    try {
+      chrome.storage.local.get(['joblensResume'], (result) => {
+        if (chrome.runtime?.lastError) {
+          console.warn('content.js: storage get failed', chrome.runtime.lastError.message);
+          sendMessage({ type: 'JOBLENS_RESUME_DATA', requestId, payload: null });
+          return;
+        }
+        const msg = { type: 'JOBLENS_RESUME_DATA', requestId, payload: result.joblensResume || null };
+        console.log('content.js: returning resume data to panel', msg);
+        sendMessage(msg);
+      });
+    } catch (err) {
+      console.warn('content.js: failed to read resume from storage', err);
+      sendMessage({ type: 'JOBLENS_RESUME_DATA', requestId, payload: null });
+    }
   }
 
-
-  // --------------------------------------------------
-  // REMOVE RESUME
-  // --------------------------------------------------
-
-  if (type === "JOBLENS_REMOVE_RESUME") {
-    chrome.storage.local.remove(
-      "joblensResume",
-      () => {
-        panelFrame?.contentWindow?.postMessage(
-          {
-            type: "JOBLENS_REMOVE_RESUME_ACK",
-            requestId
-          },
-          "*"
-        );
-      }
-    );
+  if (type === 'JOBLENS_REMOVE_RESUME') {
+    try {
+      chrome.storage.local.remove('joblensResume', () => {
+        if (chrome.runtime?.lastError) {
+          console.warn('content.js: storage remove failed', chrome.runtime.lastError.message);
+          return;
+        }
+        const ack = { type: 'JOBLENS_REMOVE_RESUME_ACK', requestId };
+        console.log('content.js: removed resume, posting ack', ack);
+        sendMessage(ack);
+      });
+    } catch (err) {
+      console.warn('content.js: failed to remove resume from storage', err);
+    }
   }
 });

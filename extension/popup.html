@@ -1,14 +1,179 @@
 <!doctype html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>JobLens</title>
-  <link rel="stylesheet" href="popup.css">
-</head>
-<body>
-  <iframe
-    title="JobLens"
-    src="https://fake-job.vercel.app/">
-  </iframe>
-</body>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>JobLens · Recharge</title>
+    <style>
+      :root {
+        --bg-0: #070c14;
+        --bg-1: #0c1524;
+        --panel: #0f1b2e;
+        --line: #1c2b42;
+        --cyan: #5eead4;
+        --cyan-dim: rgba(94, 234, 212, 0.2);
+        --amber: #f5b84d;
+        --text-hi: #eaf2f6;
+        --text-lo: #8ea2b8;
+        --danger: #f5716c;
+        --radius: 18px;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; }
+      body {
+        width: 360px;
+        min-height: 700px;
+        background: radial-gradient(60% 50% at 50% -10%, #123a3f66 0%, transparent 60%),
+          radial-gradient(80% 60% at 90% 110%, #1a2a5544 0%, transparent 55%),
+          var(--bg-0);
+        color: var(--text-hi);
+        font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 18px 16px 28px;
+      }
+      .topbar {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 18px;
+      }
+      .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; letter-spacing: 0.02em; font-size: 15px; }
+      .brand-logo {
+        width: 30px; height: 30px; border-radius: 8px; background: linear-gradient(155deg, #2E9463 0%, #1C6B45 100%);
+        display: flex; align-items: center; justify-content: center; color: #EAF6EF; box-shadow: 0 2px 4px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.25);
+      }
+      .brand-logo svg { width: 17px; height: 17px; stroke-width: 2.1; }
+      .brand-text { display: flex; align-items: center; gap: 6px; }
+      .brand .sub { color: var(--text-lo); font-size: 12px; font-weight: 400; margin-left: 2px; }
+      .lens-wrap { position: relative; width: 180px; height: 180px; margin-bottom: 8px; }
+      .lens { position: absolute; inset: 0; animation: spin 14s linear infinite; transform-style: preserve-3d; }
+      @keyframes spin { to { transform: rotateY(360deg) rotateX(8deg); } }
+      .ring { position: absolute; inset: 0; border-radius: 50%; border: 1.5px solid var(--cyan); opacity: .55; }
+      .ring.r2 { inset: 18px; border-color: var(--amber); opacity: .45; transform: rotateX(70deg); }
+      .ring.r3 { inset: 36px; border-color: var(--cyan); opacity: .7; transform: rotateY(70deg); }
+      .core { position: absolute; inset: 60px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #d7fff6 0%, var(--cyan) 40%, #0a3b38 100%); box-shadow: 0 0 40px 6px var(--cyan-dim), inset 0 0 18px rgba(255,255,255,.35); }
+      .sweep { position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(from 0deg, transparent 0%, rgba(94,234,212,.4) 8%, transparent 16%); animation: sweep 3s linear infinite; }
+      @keyframes sweep { to { transform: rotate(360deg); } }
+      h1 { font-size: 28px; margin: 0 0 4px; letter-spacing: -0.02em; text-align: center; }
+      h1 .accent { color: var(--cyan); }
+      p.lede { color: var(--text-lo); text-align: center; font-size: 13px; line-height: 1.5; margin: 0 0 22px; }
+      .card {
+        width: 100%; max-width: 420px;
+        background: linear-gradient(180deg, var(--panel), #0b1526);
+        border: 1px solid var(--line); border-radius: var(--radius);
+        padding: 24px 18px 18px;
+        box-shadow: 0 30px 60px -20px #000a, inset 0 1px 0 rgba(255,255,255,0.06);
+      }
+      .credit-readout {
+        display: flex; align-items: baseline; justify-content: space-between;
+        border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin-bottom: 18px; background: #0a1220;
+      }
+      .credit-readout .label { color: var(--text-lo); font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; }
+      .credit-readout .value { font-size: 28px; font-weight: 700; color: var(--cyan); }
+      .credit-readout .value .unit { font-size: 12px; color: var(--text-lo); margin-left: 4px; }
+      button { font-family: inherit; cursor: pointer; border: none; }
+      .btn { width: 100%; padding: 14px 18px; border-radius: 12px; font-size: 15px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 10px; transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease; }
+      .btn:active { transform: scale(0.98); }
+      .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+      .btn-google { background: #eaf2f6; color: #0b1526; }
+      .btn-google:hover { box-shadow: 0 0 0 3px rgba(255,255,255,0.15); }
+      .btn-pay { background: linear-gradient(135deg, var(--cyan), #2fc8b0); color: #052421; }
+      .btn-pay:hover { box-shadow: 0 0 24px -4px var(--cyan); }
+      .btn-ghost { background: transparent; border: 1px solid var(--line); color: var(--text-lo); margin-top: 10px; }
+      .pack-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 14px; }
+      .pack-chip { border: 1px solid var(--line); border-radius: 12px; padding: 10px 6px; background: #0a1220; text-align: center; transition: border-color 0.15s ease, background 0.15s ease; }
+      .pack-chip .price { font-size: 15px; font-weight: 700; color: var(--text-hi); }
+      .pack-chip .qty { font-size: 11px; color: var(--text-lo); margin-top: 2px; }
+      .pack-chip.active { border-color: var(--cyan); background: var(--cyan-dim); }
+      .pack-chip.active .price { color: var(--cyan); }
+      .custom-row { display: flex; align-items: center; gap: 10px; border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-bottom: 18px; background: #0a1220; }
+      .custom-row .rupee { color: var(--text-lo); font-size: 15px; font-weight: 700; }
+      .custom-row input { flex: 1; background: transparent; border: none; outline: none; color: var(--text-hi); font-size: 15px; min-width: 0; }
+      .custom-row input::placeholder { color: var(--text-lo); }
+      .custom-row .credits-out { font-size: 12px; color: var(--cyan); white-space: nowrap; }
+      .user-row { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
+      .user-row img { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--line); object-fit: cover; }
+      .user-row .name { font-size: 14px; font-weight: 700; }
+      .user-row .email { font-size: 12px; color: var(--text-lo); }
+      .status { margin-top: 12px; min-height: 18px; font-size: 13px; text-align: center; color: var(--text-lo); }
+      .status.err { color: var(--danger); }
+      .status.ok { color: var(--cyan); }
+      .hidden { display: none !important; }
+    </style>
+  </head>
+  <body>
+    <div class="topbar">
+      <div class="brand">
+        <div class="brand-logo">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M2.5 12s3.4-6 9.5-6 9.5 6 9.5 6-3.4 6-9.5 6-9.5-6-9.5-6Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="12" cy="12" r="2.7" stroke="currentColor" stroke-width="2"/>
+            <path d="M12 4.5V3M19.5 12H21M12 19.5V21M3 12h1.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="brand-text"><span>JOBLENS</span><span class="sub">recharge</span></div>
+      </div>
+    </div>
+
+    <div class="lens-wrap">
+      <div class="lens">
+        <div class="ring r1"></div>
+        <div class="ring r2"></div>
+        <div class="ring r3"></div>
+        <div class="core"></div>
+      </div>
+      <div class="sweep"></div>
+    </div>
+
+    <h1>Top up your <span class="accent">scan credits</span></h1>
+
+    <div class="card">
+      <div id="loggedOut">
+        <p style="color: var(--text-lo); font-size: 13px; margin: 0 0 16px; text-align: center;">
+          Sign in with the same Google account you use in the JobLens extension.
+        </p>
+        <button id="googleLoginBtn" class="btn btn-google">
+          <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+            <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.91c1.7-1.57 2.69-3.88 2.69-6.62z"/>
+            <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.91-2.26c-.81.54-1.84.86-3.05.86-2.35 0-4.34-1.58-5.05-3.71H.95v2.33A9 9 0 0 0 9 18z"/>
+            <path fill="#FBBC05" d="M3.95 10.71a5.4 5.4 0 0 1 0-3.42V4.96H.95a9 9 0 0 0 0 8.08l3-2.33z"/>
+            <path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .95 4.96l3 2.33C4.66 5.16 6.65 3.58 9 3.58z"/>
+          </svg>
+          Continue with Google
+        </button>
+        <div id="loginStatus" class="status"></div>
+      </div>
+
+      <div id="loggedIn" class="hidden">
+        <div class="user-row">
+          <img id="userPic" src="" alt="" />
+          <div>
+            <div id="userName" class="name"></div>
+            <div id="userEmail" class="email"></div>
+          </div>
+        </div>
+
+        <div class="credit-readout">
+          <div class="label">Credits left</div>
+          <div class="value"><span id="creditCount">–</span><span class="unit">scans</span></div>
+        </div>
+
+        <div id="packGrid" class="pack-grid"></div>
+
+        <div class="custom-row">
+          <span class="rupee">₹</span>
+          <input type="number" id="customAmount" min="10" max="1000" step="1" placeholder="Custom amount (10–1000)" />
+          <span id="customCreditsOut" class="credits-out"></span>
+        </div>
+
+        <button id="payBtn" class="btn btn-pay">Recharge with Razorpay</button>
+        <button id="logoutBtn" class="btn btn-ghost">Sign out</button>
+        <div id="payStatus" class="status"></div>
+      </div>
+    </div>
+  </body>
+  <script src="popup.js"></script>
 </html>

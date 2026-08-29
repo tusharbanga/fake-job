@@ -1,4 +1,4 @@
-const API_BASE_URL = "https://fake-job-api-xeuu.onrender.com";
+const API_BASE_URL = "http://localhost:8000";
 
 function responseError(data, fallback) {
   if (typeof data?.detail === "string") return data.detail;
@@ -16,11 +16,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   chrome.storage.local.get(["token", "enabled"], async ({ token, enabled = true }) => {
     if (!enabled) return sendResponse({ error: "Enable JobLens first" });
     if (!token) {
-      try {
-        const response = await fetch(`${API_BASE_URL}/analysis/demo`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: message.text }) });
-        const data = await readResponse(response);
-        return sendResponse(response.ok ? { data } : { error: responseError(data, "AI analysis failed") });
-      } catch (error) { return sendResponse({ error: error.message }); }
+      return sendResponse({ error: "Sign in from JobLens Settings before analyzing" });
     }
     try {
       const response = await fetch(`${API_BASE_URL}/analysis/analyze`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ text: message.text }) });
