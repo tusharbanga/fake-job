@@ -1,0 +1,1457 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>JobLens · Recharge</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
+<style>
+  :root{
+    --bg-0:#070c14;
+    --bg-1:#0c1524;
+    --panel:#0f1b2e;
+    --line:#1c2b42;
+    --cyan:#5eead4;
+    --cyan-dim:#5eead422;
+    --amber:#f5b84d;
+    --text-hi:#eaf2f6;
+    --text-lo:#8ea2b8;
+    --danger:#f5716c;
+    --radius:18px;
+  }
+
+  *{
+    box-sizing:border-box;
+  }
+
+  html,body{
+    margin:0;
+    padding:0;
+  }
+
+  body{
+    min-height:100vh;
+    background:
+      radial-gradient(60% 50% at 50% -10%, #123a3f66 0%, transparent 60%),
+      radial-gradient(80% 60% at 90% 110%, #1a2a5544 0%, transparent 55%),
+      var(--bg-0);
+    color:var(--text-hi);
+    font-family:"Space Grotesk",ui-sans-serif,system-ui,sans-serif;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:8vh 20px 60px;
+    overflow-x:hidden;
+  }
+
+  .mono{
+    font-family:"JetBrains Mono",ui-monospace,monospace;
+  }
+
+  /* =========================================================
+     TOP BAR
+  ========================================================= */
+
+  .topbar{
+    width:100%;
+    max-width:960px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:8vh;
+  }
+
+  .brand{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-weight:600;
+    letter-spacing:.02em;
+    font-size:15px;
+    color:var(--text-hi);
+  }
+
+  /* Same JobLens logo style as the React app */
+  .brand-logo{
+    width:30px;
+    height:30px;
+    border-radius:8px;
+    background:linear-gradient(155deg,#2E9463 0%,#1C6B45 100%);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:#EAF6EF;
+    box-shadow:
+      0 2px 4px rgba(0,0,0,.35),
+      inset 0 1px 0 rgba(255,255,255,.25);
+    flex-shrink:0;
+  }
+
+  .brand-logo svg{
+    width:17px;
+    height:17px;
+    stroke-width:2.1;
+  }
+
+  .brand-text{
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+
+  .brand .sub{
+    color:var(--text-lo);
+    font-size:12px;
+    font-weight:400;
+    margin-left:2px;
+  }
+
+  /* =========================================================
+     SIGNATURE ROTATING SCAN LENS
+  ========================================================= */
+
+  .lens-wrap{
+    position:relative;
+    width:220px;
+    height:220px;
+    margin-bottom:18px;
+    perspective:900px;
+  }
+
+  .lens{
+    position:absolute;
+    inset:0;
+    transform-style:preserve-3d;
+    animation:spin 16s linear infinite;
+  }
+
+  @keyframes spin{
+    to{
+      transform:rotateY(360deg) rotateX(8deg);
+    }
+  }
+
+  .ring{
+    position:absolute;
+    inset:0;
+    border-radius:50%;
+    border:1.5px solid var(--cyan);
+    opacity:.55;
+  }
+
+  .ring.r2{
+    inset:22px;
+    border-color:var(--amber);
+    opacity:.4;
+    transform:rotateX(70deg);
+  }
+
+  .ring.r3{
+    inset:44px;
+    border-color:var(--cyan);
+    opacity:.7;
+    transform:rotateY(70deg);
+  }
+
+  .core{
+    position:absolute;
+    inset:70px;
+    border-radius:50%;
+    background:
+      radial-gradient(
+        circle at 35% 30%,
+        #d7fff6 0%,
+        var(--cyan) 40%,
+        #0a3b38 100%
+      );
+    box-shadow:
+      0 0 50px 6px var(--cyan-dim),
+      inset 0 0 20px #ffffff55;
+  }
+
+  .sweep{
+    position:absolute;
+    inset:0;
+    border-radius:50%;
+    background:
+      conic-gradient(
+        from 0deg,
+        transparent 0%,
+        #5eead455 8%,
+        transparent 16%
+      );
+    animation:sweep 3s linear infinite;
+  }
+
+  @keyframes sweep{
+    to{
+      transform:rotate(360deg);
+    }
+  }
+
+  @media (prefers-reduced-motion:reduce){
+    .lens{
+      animation:none;
+    }
+
+    .sweep{
+      animation:none;
+    }
+  }
+
+  /* =========================================================
+     HEADLINE
+  ========================================================= */
+
+  h1{
+    font-size:clamp(28px,4vw,40px);
+    margin:0 0 6px;
+    text-align:center;
+    letter-spacing:-.01em;
+  }
+
+  h1 .accent{
+    color:var(--cyan);
+  }
+
+  p.lede{
+    color:var(--text-lo);
+    text-align:center;
+    max-width:440px;
+    margin:0 0 40px;
+    font-size:15px;
+    line-height:1.55;
+  }
+
+  /* =========================================================
+     CARD
+  ========================================================= */
+
+  .card{
+    width:100%;
+    max-width:420px;
+    background:
+      linear-gradient(
+        180deg,
+        var(--panel),
+        #0b1526
+      );
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:28px;
+    box-shadow:
+      0 30px 60px -20px #000a,
+      inset 0 1px 0 #ffffff0d;
+  }
+
+  /* =========================================================
+     CREDIT READOUT
+  ========================================================= */
+
+  .credit-readout{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:16px 18px;
+    margin-bottom:20px;
+    background:#0a1220;
+  }
+
+  .credit-readout .label{
+    color:var(--text-lo);
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:.08em;
+  }
+
+  .credit-readout .value{
+    font-size:30px;
+    font-weight:600;
+    color:var(--cyan);
+  }
+
+  .credit-readout .value .unit{
+    font-size:13px;
+    color:var(--text-lo);
+    margin-left:4px;
+    font-weight:400;
+  }
+
+  /* =========================================================
+     BUTTONS
+  ========================================================= */
+
+  button{
+    font-family:inherit;
+    cursor:pointer;
+    border:none;
+  }
+
+  .btn{
+    width:100%;
+    padding:14px 18px;
+    border-radius:12px;
+    font-size:15px;
+    font-weight:600;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+    transition:
+      transform .15s ease,
+      box-shadow .15s ease,
+      opacity .15s ease;
+  }
+
+  .btn:active{
+    transform:scale(.98);
+  }
+
+  .btn:disabled{
+    opacity:.5;
+    cursor:not-allowed;
+  }
+
+  .btn-google{
+    background:#eaf2f6;
+    color:#0b1526;
+  }
+
+  .btn-google:hover{
+    box-shadow:0 0 0 3px #ffffff22;
+  }
+
+  .btn-pay{
+    background:
+      linear-gradient(
+        135deg,
+        var(--cyan),
+        #2fc8b0
+      );
+    color:#052421;
+  }
+
+  .btn-pay:hover{
+    box-shadow:0 0 24px -4px var(--cyan);
+  }
+
+  .btn-ghost{
+    background:transparent;
+    border:1px solid var(--line);
+    color:var(--text-lo);
+    margin-top:10px;
+  }
+
+  /* =========================================================
+     PACKS
+  ========================================================= */
+
+  .pack-grid{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:8px;
+    margin-bottom:14px;
+  }
+
+  .pack-chip{
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:10px 6px;
+    background:#0a1220;
+    text-align:center;
+    transition:
+      border-color .15s ease,
+      background .15s ease;
+  }
+
+  .pack-chip .price{
+    font-family:"JetBrains Mono",monospace;
+    font-size:15px;
+    font-weight:600;
+    color:var(--text-hi);
+  }
+
+  .pack-chip .qty{
+    font-size:11px;
+    color:var(--text-lo);
+    margin-top:2px;
+  }
+
+  .pack-chip.active{
+    border-color:var(--cyan);
+    background:var(--cyan-dim);
+  }
+
+  .pack-chip.active .price{
+    color:var(--cyan);
+  }
+
+  /* =========================================================
+     CUSTOM AMOUNT
+  ========================================================= */
+
+  .custom-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:12px 14px;
+    margin-bottom:18px;
+    background:#0a1220;
+  }
+
+  .custom-row .rupee{
+    color:var(--text-lo);
+    font-size:15px;
+    font-family:"JetBrains Mono",monospace;
+  }
+
+  .custom-row input{
+    flex:1;
+    background:transparent;
+    border:none;
+    outline:none;
+    color:var(--text-hi);
+    font-family:"JetBrains Mono",monospace;
+    font-size:15px;
+    min-width:0;
+  }
+
+  .custom-row input::placeholder{
+    color:var(--text-lo);
+  }
+
+  .custom-row .credits-out{
+    font-size:12px;
+    color:var(--cyan);
+    white-space:nowrap;
+  }
+
+  /* =========================================================
+     USER
+  ========================================================= */
+
+  .user-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:18px;
+  }
+
+  .user-row img{
+    width:36px;
+    height:36px;
+    border-radius:50%;
+    border:1px solid var(--line);
+  }
+
+  .user-row .name{
+    font-size:14px;
+    font-weight:600;
+  }
+
+  .user-row .email{
+    font-size:12px;
+    color:var(--text-lo);
+  }
+
+  /* =========================================================
+     STATUS
+  ========================================================= */
+
+  .status{
+    margin-top:14px;
+    font-size:13px;
+    text-align:center;
+    min-height:18px;
+    color:var(--text-lo);
+  }
+
+  .status.err{
+    color:var(--danger);
+  }
+
+  .status.ok{
+    color:var(--cyan);
+  }
+
+  /* =========================================================
+     FOOTNOTE
+  ========================================================= */
+
+  .footnote{
+    margin-top:22px;
+    text-align:center;
+    color:#4c5c72;
+    font-size:11.5px;
+    max-width:400px;
+    line-height:1.5;
+  }
+
+  .footnote .mono{
+    color:#66798f;
+  }
+
+  .hidden{
+    display:none !important;
+  }
+</style>
+</head>
+
+<body>
+
+  <!-- =======================================================
+       TOP BAR
+  ======================================================== -->
+
+  <div class="topbar">
+
+    <div class="brand">
+
+      <!-- JobLens logo -->
+      <div class="brand-logo">
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
+        >
+          <path
+            d="M2.5 12s3.4-6 9.5-6 9.5 6 9.5 6-3.4 6-9.5 6-9.5-6-9.5-6Z"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+
+          <circle
+            cx="12"
+            cy="12"
+            r="2.7"
+            stroke="currentColor"
+            stroke-width="2"
+          />
+
+          <path
+            d="M12 4.5V3M19.5 12H21M12 19.5V21M3 12h1.5"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+          />
+        </svg>
+      </div>
+
+      <div class="brand-text">
+        <span>JOBLENS</span>
+        <span class="sub">recharge</span>
+      </div>
+
+    </div>
+
+    <div
+      class="mono"
+      style="font-size:11px;color:var(--text-lo);"
+    >
+      <!-- TEST MODE -->
+    </div>
+
+  </div>
+
+
+  <!-- =======================================================
+       ROTATING LENS
+  ======================================================== -->
+
+  <div class="lens-wrap">
+
+    <div class="lens">
+      <div class="ring r1"></div>
+      <div class="ring r2"></div>
+      <div class="ring r3"></div>
+      <div class="core"></div>
+    </div>
+
+    <div class="sweep"></div>
+
+  </div>
+
+
+  <!-- =======================================================
+       HEADING
+  ======================================================== -->
+
+  <h1>
+    Top up your
+    <span class="accent">scan credits</span>
+  </h1>
+
+  <!-- <p class="lede">
+    Every job post you run through JobLens spends one credit.
+    You start with 25 free. Pick a pack below (or enter a custom
+    amount) — 1 rupee always gets you 8 credits, and it updates
+    instantly across the extension.
+  </p> -->
+
+
+  <!-- =======================================================
+       MAIN CARD
+  ======================================================== -->
+
+  <div class="card">
+
+    <!-- ================= LOGGED OUT ================= -->
+
+    <div id="loggedOut">
+
+      <p
+      align='center'
+        style="
+          color:var(--text-lo);
+          font-size:13px;
+          margin:0 0 16px;
+        "
+      >
+        Sign in with the same Google account you use in the
+        JobLens extension.
+      </p>
+
+      <button
+        class="btn btn-google"
+        id="googleLoginBtn"
+      >
+
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 18 18"
+          aria-hidden="true"
+        >
+          <path
+            fill="#4285F4"
+            d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.91c1.7-1.57 2.69-3.88 2.69-6.62z"
+          />
+
+          <path
+            fill="#34A853"
+            d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.91-2.26c-.81.54-1.84.86-3.05.86-2.35 0-4.34-1.58-5.05-3.71H.95v2.33A9 9 0 0 0 9 18z"
+          />
+
+          <path
+            fill="#FBBC05"
+            d="M3.95 10.71a5.4 5.4 0 0 1 0-3.42V4.96H.95a9 9 0 0 0 0 8.08l3-2.33z"
+          />
+
+          <path
+            fill="#EA4335"
+            d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .95 4.96l3 2.33C4.66 5.16 6.65 3.58 9 3.58z"
+          />
+        </svg>
+
+        Continue with Google
+
+      </button>
+
+      <div
+        class="status"
+        id="loginStatus"
+      ></div>
+
+    </div>
+
+
+    <!-- ================= LOGGED IN ================= -->
+
+    <div
+      id="loggedIn"
+      class="hidden"
+    >
+
+      <div class="user-row">
+
+        <img
+          id="userPic"
+          src=""
+          alt=""
+          onerror="this.onerror=null;this.src='https://api.dicebear.com/9.x/initials/svg?seed=User'"
+        />
+
+        <div>
+
+          <div
+            class="name"
+            id="userName"
+          ></div>
+
+          <div
+            class="email"
+            id="userEmail"
+          ></div>
+
+        </div>
+
+      </div>
+
+
+      <!-- CREDIT BALANCE -->
+
+      <div class="credit-readout">
+
+        <div class="label">
+          Credits left
+        </div>
+
+        <div class="value">
+
+          <span id="creditCount">
+            –
+          </span>
+
+          <span class="unit">
+            scans
+          </span>
+
+        </div>
+
+      </div>
+
+
+      <!-- PACKS -->
+
+      <div
+        class="pack-grid"
+        id="packGrid"
+      ></div>
+
+
+      <!-- CUSTOM AMOUNT -->
+
+      <div class="custom-row">
+
+        <span class="rupee">
+          ₹
+        </span>
+
+        <input
+          type="number"
+          id="customAmount"
+          placeholder="Custom amount (10–1000)"
+          min="10"
+          max="1000"
+          step="1"
+        />
+
+        <span
+          class="credits-out"
+          id="customCreditsOut"
+        ></span>
+
+      </div>
+
+
+      <!-- PAYMENT -->
+
+      <button
+        class="btn btn-pay"
+        id="payBtn"
+      >
+        Recharge with Razorpay
+      </button>
+
+
+      <!-- LOGOUT -->
+
+      <button
+        class="btn btn-ghost"
+        id="logoutBtn"
+      >
+        Sign out
+      </button>
+
+
+      <div
+        class="status"
+        id="payStatus"
+      ></div>
+
+    </div>
+
+  </div>
+
+
+<script>
+
+  /* =========================================================
+     CONFIG
+  ========================================================= */
+
+  const API_BASE_URL = "http://localhost:8000";
+
+  const STORAGE_KEY = "joblens_recharge_token";
+
+  const CREDITS_PER_RUPEE = 4;
+
+  const PRESET_AMOUNTS = [
+    25,
+    50,
+    100,
+    200,
+    500,
+    1000
+  ];
+
+
+  /* =========================================================
+     HELPERS
+  ========================================================= */
+
+  const el = (id) =>
+    document.getElementById(id);
+
+
+  /* =========================================================
+     AMOUNT PICKER
+  ========================================================= */
+
+  let selectedAmount =
+    PRESET_AMOUNTS[0];
+
+
+  function renderPackGrid(){
+
+    const grid =
+      el("packGrid");
+
+    grid.innerHTML = "";
+
+    PRESET_AMOUNTS.forEach(
+      (amount) => {
+
+        const chip =
+          document.createElement("button");
+
+        chip.type = "button";
+
+        chip.className =
+          "pack-chip" +
+          (
+            amount === selectedAmount
+              ? " active"
+              : ""
+          );
+
+        chip.innerHTML = `
+          <div class="price">
+            ₹${amount}
+          </div>
+
+          <div class="qty">
+            +${amount * CREDITS_PER_RUPEE} credits
+          </div>
+        `;
+
+        chip.addEventListener(
+          "click",
+          () => {
+
+            selectedAmount =
+              amount;
+
+            el(
+              "customAmount"
+            ).value = "";
+
+            el(
+              "customCreditsOut"
+            ).textContent = "";
+
+            renderPackGrid();
+          }
+        );
+
+        grid.appendChild(chip);
+
+      }
+    );
+  }
+
+
+  el(
+    "customAmount"
+  ).addEventListener(
+    "input",
+    (event) => {
+
+      const raw =
+        parseInt(
+          event.target.value,
+          10
+        );
+
+      if (
+        !raw ||
+        raw < 10 ||
+        raw > 1000
+      ){
+
+        el(
+          "customCreditsOut"
+        ).textContent =
+          raw
+            ? "10–1000 only"
+            : "";
+
+        selectedAmount =
+          null;
+
+        return;
+      }
+
+      selectedAmount =
+        raw;
+
+      el(
+        "customCreditsOut"
+      ).textContent =
+        `= ${raw * CREDITS_PER_RUPEE} credits`;
+
+      document
+        .querySelectorAll(".pack-chip")
+        .forEach(
+          (chip) =>
+            chip.classList.remove("active")
+        );
+
+    }
+  );
+
+
+  renderPackGrid();
+
+
+  /* =========================================================
+     TOKEN
+  ========================================================= */
+
+  function getToken(){
+
+    return localStorage.getItem(
+      STORAGE_KEY
+    );
+
+  }
+
+
+  function setToken(token){
+
+    localStorage.setItem(
+      STORAGE_KEY,
+      token
+    );
+
+  }
+
+
+  function clearToken(){
+
+    localStorage.removeItem(
+      STORAGE_KEY
+    );
+
+  }
+
+
+  /* =========================================================
+     API
+  ========================================================= */
+
+  async function api(
+    path,
+    opts = {}
+  ){
+
+    const token =
+      getToken();
+
+    const headers =
+      Object.assign(
+        {
+          "Content-Type":
+            "application/json"
+        },
+        opts.headers || {}
+      );
+
+    if(token){
+
+      headers.Authorization =
+        `Bearer ${token}`;
+
+    }
+
+    const res =
+      await fetch(
+        `${API_BASE_URL}${path}`,
+        {
+          ...opts,
+          headers
+        }
+      );
+
+    const body =
+      await res
+        .json()
+        .catch(
+          () => ({})
+        );
+
+    if(!res.ok){
+
+      const detail =
+        typeof body.detail === "string"
+          ? body.detail
+          : (
+              body.detail?.message ||
+              "Something went wrong"
+            );
+
+      throw new Error(detail);
+
+    }
+
+    return body;
+
+  }
+
+
+  /* =========================================================
+     LOGIN / LOGOUT UI
+  ========================================================= */
+
+  function showLoggedOut(
+    message,
+    isErr
+  ){
+
+    el("loggedOut")
+      .classList
+      .remove("hidden");
+
+    el("loggedIn")
+      .classList
+      .add("hidden");
+
+    el("loginStatus")
+      .textContent =
+        message || "";
+
+    el("loginStatus")
+      .className =
+        "status" +
+        (
+          isErr
+            ? " err"
+            : ""
+        );
+
+  }
+
+
+  function showLoggedIn(
+    user
+  ){
+
+    el("loggedOut")
+      .classList
+      .add("hidden");
+
+    el("loggedIn")
+      .classList
+      .remove("hidden");
+
+    el("userName")
+      .textContent =
+        user.name;
+
+    el("userEmail")
+      .textContent =
+        user.email;
+
+    el("userPic")
+      .src =
+        user.picture ||
+        `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(user.name)}`;
+
+    el("creditCount")
+      .textContent =
+        user.credits;
+
+  }
+
+
+  /* =========================================================
+     LOAD USER
+  ========================================================= */
+
+  async function loadMe(){
+
+    try{
+
+      const user =
+        await api(
+          "/auth/me"
+        );
+
+      showLoggedIn(
+        user
+      );
+
+    }catch(err){
+
+      clearToken();
+
+      showLoggedOut();
+
+    }
+
+  }
+
+
+  /* =========================================================
+     GOOGLE LOGIN
+  ========================================================= */
+
+  el(
+    "googleLoginBtn"
+  ).addEventListener(
+    "click",
+    () => {
+
+      showLoggedOut(
+        "Waiting for Google sign-in…"
+      );
+
+      window.open(
+        `${API_BASE_URL}/auth/google/login`,
+        "joblens-google-login",
+        "width=520,height=680"
+      );
+
+    }
+  );
+
+
+  /* =========================================================
+     AUTH MESSAGE
+  ========================================================= */
+
+  window.addEventListener(
+    "message",
+    (event) => {
+
+      if(
+        event.data?.type ===
+          "JOBLENS_AUTH" &&
+        event.data.token
+      ){
+
+        setToken(
+          event.data.token
+        );
+
+        loadMe();
+
+      }
+
+    }
+  );
+
+
+  /* =========================================================
+     LOGOUT
+  ========================================================= */
+
+  el(
+    "logoutBtn"
+  ).addEventListener(
+    "click",
+    () => {
+
+      clearToken();
+
+      showLoggedOut();
+
+    }
+  );
+
+
+  /* =========================================================
+     RAZORPAY PAYMENT
+  ========================================================= */
+
+  el(
+    "payBtn"
+  ).addEventListener(
+    "click",
+    async () => {
+
+      const payStatus =
+        el("payStatus");
+
+      const payBtn =
+        el("payBtn");
+
+      payStatus.className =
+        "status";
+
+
+      /* -------------------------
+         VALIDATE AMOUNT
+      ------------------------- */
+
+      if(
+        !selectedAmount ||
+        selectedAmount < 10 ||
+        selectedAmount > 1000
+      ){
+
+        payStatus.className =
+          "status err";
+
+        payStatus.textContent =
+          "Pick a pack or enter an amount between ₹10 and ₹1000.";
+
+        return;
+
+      }
+
+
+      payStatus.textContent =
+        "Creating order…";
+
+      payBtn.disabled =
+        true;
+
+      const balanceBeforePay =
+        Number(
+          el("creditCount").textContent
+        ) || 0;
+
+
+      try{
+
+        /* -------------------------
+           CREATE ORDER
+        ------------------------- */
+
+        const order =
+          await api(
+            "/payments/order",
+            {
+              method:"POST",
+
+              body:JSON.stringify({
+                amount:
+                  selectedAmount
+              })
+            }
+          );
+
+
+        /* -------------------------
+           RAZORPAY
+        ------------------------- */
+
+        const rzp =
+          new Razorpay({
+
+            key:
+              order.key_id,
+
+            amount:
+              order.amount,
+
+            currency:
+              order.currency,
+
+            name:
+              "JobLens",
+
+            description:
+              `${order.credits} scan credits`,
+
+            order_id:
+              order.order_id,
+
+            theme:{
+              color:"#5eead4"
+            },
+
+
+            /* ---------------------
+               SUCCESS
+            --------------------- */
+
+            handler:
+              async function(
+                response
+              ){
+
+                payStatus.textContent =
+                  "Verifying payment…";
+
+                try{
+
+                  const result =
+                    await api(
+                      "/payments/verify",
+                      {
+                        method:"POST",
+
+                        body:
+                          JSON.stringify({
+
+                            razorpay_order_id:
+                              response.razorpay_order_id,
+
+                            razorpay_payment_id:
+                              response.razorpay_payment_id,
+
+                            razorpay_signature:
+                              response.razorpay_signature
+
+                          })
+                      }
+                    );
+
+
+                  el(
+                    "creditCount"
+                  ).textContent =
+                    result.credits;
+
+                  const added =
+                    Math.max(
+                      0,
+                      result.credits - balanceBeforePay
+                    );
+
+                  payStatus.className =
+                    "status ok";
+
+                  payStatus.textContent =
+                    added > 0
+                      ? `+${added} credits added. New balance: ${result.credits}.`
+                      : `New balance: ${result.credits}.`;
+
+
+                }catch(err){
+
+                  payStatus.className =
+                    "status err";
+
+                  payStatus.textContent =
+                    err.message;
+
+                }finally{
+
+                  payBtn.disabled =
+                    false;
+
+                }
+
+              },
+
+
+            /* ---------------------
+               MODAL DISMISS
+            --------------------- */
+
+            modal:{
+              ondismiss:
+                function(){
+
+                  payStatus.textContent =
+                    "Payment cancelled.";
+
+                  payBtn.disabled =
+                    false;
+
+                }
+            }
+
+          });
+
+
+        /* -------------------------
+           PAYMENT FAILED
+        ------------------------- */
+
+        rzp.on(
+          "payment.failed",
+          function(resp){
+
+            payStatus.className =
+              "status err";
+
+            payStatus.textContent =
+              "Payment failed: " +
+              resp.error.description;
+
+            payBtn.disabled =
+              false;
+
+          }
+        );
+
+
+        payStatus.textContent =
+          "Opening checkout…";
+
+        rzp.open();
+
+
+      }catch(err){
+
+        payStatus.className =
+          "status err";
+
+        payStatus.textContent =
+          err.message;
+
+        payBtn.disabled =
+          false;
+
+      }
+
+    }
+  );
+
+
+  /* =========================================================
+     INITIAL LOAD
+  ========================================================= */
+
+  if(
+    getToken()
+  ){
+
+    loadMe();
+
+  }else{
+
+    showLoggedOut();
+
+  }
+
+</script>
+
+</body>
+</html>
