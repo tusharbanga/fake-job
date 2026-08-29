@@ -3,31 +3,28 @@ from uuid import uuid4
 
 from .groq_service import analyze_with_groq
 from .matching import match_resume
-from .ml_detector import analyze_job
 
 
-async def analyze(text: str, resume_text: str | None = None) -> dict:
-    ml = analyze_job(text)
+async def analyze(text: str, resume_text: str | None = None, resume_id: str | None = None) -> dict:
     groq = await analyze_with_groq(text)
-    if ml["available"] and ml["classification"] and ml["score"] is not None:
-        groq_direction = "positive" if groq["classification"] == "positive" else "negative" if groq["classification"] == "negative" else None
-        classification = ml["classification"] if not groq_direction or groq_direction == ml["classification"] else "uncertain"
-        final = {
-            "classification": classification,
-            "score": round((ml["score"] + groq["score"]) / 2),
-            "reasons": list(dict.fromkeys(ml["reasons"] + groq["reasons"])),
-        }
-    else:
-        # Until the adapter is configured, ML absence is not a prediction.
-        final = groq
+    # Use the skills the AI actually extracted for THIS job posting as the
+    # primary skill list for resume matching, instead of a fixed keyword
+    # list — this is what lets non-generic roles (networking, mobile, data,
+    # sales, ...) get a meaningful match score.
+    job_skills = groq.get("job", {}).get("skills", [])
+    resume_match = (
+        match_resume(text, resume_text, job_skills)
+        if resume_text
+        else None
+    )
     return {
         "_id": str(uuid4()),
         "text": text,
-        "ml": ml,
         "groq": groq,
-        "classification": final["classification"],
-        "score": final["score"],
-        "reasons": final["reasons"],
-        "resume_match": match_resume(text, resume_text) if resume_text else None,
+        "resume_id": resume_id,
+        "classification": groq["classification"],
+        "score": groq["score"],
+        "reasons": groq["reasons"],
+        "resume_match": resume_match,
         "created_at": datetime.now(timezone.utc),
     }

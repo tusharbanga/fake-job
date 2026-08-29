@@ -16,7 +16,7 @@ async def analyze_demo(request: AnalysisRequest):
         result = await analyze(request.text)
     except Exception as exc:
         raise HTTPException(502, f"AI provider error: {exc}") from exc
-    return {"classification": result["classification"], "score": result["score"], "groq": result["groq"], "ml": result["ml"], "reasons": result["reasons"]}
+    return {"classification": result["classification"], "score": result["score"], "groq": result["groq"], "reasons": result["reasons"]}
 
 
 @router.post("/demo-match")

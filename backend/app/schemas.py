@@ -9,6 +9,7 @@ class UserResponse(BaseModel):
     email: str
     name: str
     picture: str | None = None
+    credits: int = 0
 
 
 class TokenResponse(BaseModel):
@@ -24,11 +25,16 @@ class ResumeResponse(BaseModel):
     uploaded_at: datetime
 
 
-class MLResult(BaseModel):
-    classification: Literal["positive", "negative"] | None = None
-    score: int | None = Field(default=None, ge=0, le=100)
-    reasons: list[str] = []
-    available: bool = False
+class JobInfo(BaseModel):
+    title: str = "Not listed"
+    company: str = "Not listed"
+    location: str = "Not listed"
+    work_mode: str = "Not listed"
+    employment_type: str = "Not listed"
+    duration: str = "Not listed"
+    experience: str = "Not listed"
+    salary: str = "Not listed"
+    skills: list[str] = Field(default_factory=list)
 
 
 class GroqResult(BaseModel):
@@ -36,12 +42,12 @@ class GroqResult(BaseModel):
     score: int = Field(ge=0, le=100)
     reasons: list[str]
     summary: str
+    job: JobInfo = Field(default_factory=JobInfo)
 
 
 class AnalysisResponse(BaseModel):
     id: str
     text: str
-    ml: MLResult
     groq: GroqResult
     classification: Literal["positive", "negative", "uncertain"]
     score: int
@@ -53,3 +59,13 @@ class AnalysisResponse(BaseModel):
 class AnalysisRequest(BaseModel):
     text: str = Field(min_length=20, max_length=100000)
     resume_id: str | None = None
+
+
+class CreateOrderRequest(BaseModel):
+    amount: int = Field(ge=10, le=10000, description="Amount in INR")
+
+
+class VerifyPaymentRequest(BaseModel):
+    razorpay_order_id: str
+    razorpay_payment_id: str
+    razorpay_signature: str

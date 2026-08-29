@@ -18,4 +18,4 @@ async def current_user(credentials: HTTPAuthorizationCredentials | None = Depend
     user = await database.users.find_one({"_id": user_id})
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
-    return UserResponse(id=user["_id"], email=user["email"], name=user["name"], picture=user.get("picture"))
+    return UserResponse(id=user["_id"], email=user["email"], name=user["name"], picture=user.get("picture"), credits=user.get("credits", 0))
