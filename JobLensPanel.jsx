@@ -9,47 +9,65 @@ import {
   ChevronRight,
   Highlighter,
   Loader2,
-  RotateCcw,
-  Trash2,
   ScanEye,
+  Coins,
+  Settings,
+  LogIn,
+  LogOut,
+  ExternalLink,
+  X,
 } from "lucide-react";
-import { analyzeDemoJob, matchDemoResume } from "./frontend/jobLensApi";
+import { analyzeJob, getCurrentUser, openGoogleLogin, uploadResume } from "./frontend/jobLensApi";
 
 /* ---------------------------------------------------------------------
-   RESUME STORAGE — talks to chrome.storage.local (via the content script)
-   when embedded as the extension's iframe, since this panel's own
-   localStorage is scoped to http://127.0.0.1:5173 and gets partitioned
-   per top-level site by the browser, so a resume saved on one job site
-   wouldn't show up on another. Falls back to plain localStorage when run
-   standalone (e.g. `npm run dev`, not inside the extension iframe).
+   RESUME STORAGE
+   - Standalone browser: localStorage remains the fallback.
+   - Chrome extension popup/iframe: talk to the opener/content script via
+     postMessage and let the content script write to chrome.storage.local.
+   We explicitly detect extension-backed windows instead of relying on
+   window.self !== window.top, because the extension opens the panel as a
+   separate popup window.
 --------------------------------------------------------------------- */
-const isEmbedded = typeof window !== "undefined" && window.self !== window.top;
+const isExtensionBridge = typeof window !== "undefined" && (window.parent !== window || Boolean(window.opener));
 
 function postToHost(type, payload) {
   return new Promise((resolve) => {
     const requestId = Math.random().toString(36).slice(2);
     const ackType = { JOBLENS_SAVE_RESUME: "JOBLENS_SAVE_RESUME_ACK", JOBLENS_GET_RESUME: "JOBLENS_RESUME_DATA", JOBLENS_REMOVE_RESUME: "JOBLENS_REMOVE_RESUME_ACK" }[type];
+    const targetWindow = (window.parent !== window) ? window.parent : (window.opener || null);
+
+    if (!targetWindow) {
+      console.warn("postToHost: no target window available for", type);
+      resolve(null);
+      return;
+    }
+
     const timeout = setTimeout(() => {
       window.removeEventListener("message", listener);
+      console.warn("postToHost timeout for", type);
       resolve(null);
-    }, 2000);
+    }, 5000);
+
     function listener(event) {
       if (event.data?.type !== ackType || event.data?.requestId !== requestId) return;
       clearTimeout(timeout);
       window.removeEventListener("message", listener);
       resolve(event.data);
     }
+
     window.addEventListener("message", listener);
-    window.parent.postMessage({ type, payload, requestId }, "*");
+    targetWindow.postMessage({ type, payload, requestId }, "*");
   });
 }
 
 async function saveResume(record) {
-  if (isEmbedded) {
+  if (isExtensionBridge) {
     const ack = await postToHost("JOBLENS_SAVE_RESUME", record);
     if (ack?.ok) return true;
-    // fall through to localStorage as a best-effort backup if the relay failed
+    console.warn("saveResume: extension bridge rejected the resume save", ack);
+    return false;
   }
+
   try {
     localStorage.setItem("joblens.resume", JSON.stringify(record));
     return true;
@@ -60,10 +78,16 @@ async function saveResume(record) {
 }
 
 async function loadResume() {
-  if (isEmbedded) {
+  if (isExtensionBridge) {
     const res = await postToHost("JOBLENS_GET_RESUME");
-    if (res) return res.payload;
+    if (res?.payload) {
+      console.log("loadResume: got payload from host", res.payload);
+      return res.payload;
+    }
+    console.warn("loadResume: host relay returned no result");
+    return null;
   }
+
   try {
     const saved = localStorage.getItem("joblens.resume");
     return saved ? JSON.parse(saved) : null;
@@ -73,7 +97,10 @@ async function loadResume() {
 }
 
 async function clearResume() {
-  if (isEmbedded) await postToHost("JOBLENS_REMOVE_RESUME");
+  if (isExtensionBridge) {
+    await postToHost("JOBLENS_REMOVE_RESUME");
+    return;
+  }
   localStorage.removeItem("joblens.resume");
 }
 
@@ -196,6 +223,29 @@ const JOB = {
 const DEFAULT_SELECTION =
   "We are looking for a Software Engineer to join our fast-growing team. 2-4 years experience, strong in Java/Spring Boot, AWS exposure preferred. Immediate joiners...";
 
+function isPlaceholderJobValue(value) {
+  if (value == null) return true;
+  const text = String(value).trim();
+  if (!text) return true;
+  const normalized = text.toLowerCase().replace(/[\s\-:;,.()\[\]{}'\"]+/g, " ").trim();
+  return [
+    "not listed",
+    "company not identified",
+    "location not listed",
+    "work mode not listed",
+    "employment type not listed",
+    "experience not listed",
+    "salary not listed",
+    "job title not listed",
+    "application",
+    "job",
+    "opening",
+    "opportunity",
+    "career",
+    "unknown",
+  ].includes(normalized) || /^download\b/.test(normalized) || /^install\b/.test(normalized) || /^apply\b/.test(normalized);
+}
+
 function analyzeDemoText(text) {
   const normalizedText = text.toLowerCase();
   const suspiciousSignals = ["whatsapp", "telegram", "pay fee", "registration fee", "guaranteed income", "crypto", "gift card", "send money"];
@@ -235,7 +285,11 @@ function buildDemoJob(text, aiSummary) {
   const applyingTitleMatch = text.match(/applying to\s+(.+?)\s+internship/i);
   const titleMatch = applyingTitleMatch || text.match(/(?:strategic account executive[^\n.]*)/i) || text.match(/(?:account executive[^\n.]*)/i);
   const headingMatch = text.match(/^\s*#{1,6}\s*([^\n]+)/);
-  const companyMatch = text.match(/corporate_fare\*([^*]+)\*place/i) || text.match(/\b(Salesforce|Microsoft|Amazon|Meta|Apple|Alphabt|Winter Whiz|Basti Ki Pathshala Foundation|Sprinklr|Agoda)\b/i);
+  const explicitRoleMatch = text.match(/\b(?:Software Developer|Product Technical Analyst|Software Engineer|Data Analyst|Business Analyst|Product Manager)\b/i) ||
+    text.match(/(?:roles?\s+(?:for|as)?\s*)([A-Z][A-Za-z0-9 &./+()-]*?(?:Developer|Engineer|Analyst|Manager|Lead|Architect|Scientist|Consultant))/i);
+  const companyMatch = text.match(/(?:for|at|with)\s+([A-Z][A-Za-z0-9&.'()\/ -]*?(?:\s+(?:Group|Labs|Inc|Limited|Private|Pvt|LLP|Corporation|Technologies|Systems|Solutions)))/i)
+    || text.match(/corporate_fare\*([^*]+)\*place/i)
+    || text.match(/(?:company|organization|organisation|employer)\s*[:\-]?\s*([A-Z][A-Za-z0-9&.'()\/ -]+)/i);
   const locationHeaderMatch = text.match(/place\*([^\n*]+)/i);
   const workdayLocationMatch = text.match(/locations(.+?)(?:time type|posted on)/is);
   const locationMatch = text.match(/\b(Gurgaon|Gurugram|Bengaluru|Bangalore|Mumbai|Delhi|Hyderabad|Pune|Noida|San Jose|Bangkok)(?:,\s*[A-Za-z ]+){0,2}/i);
@@ -246,9 +300,10 @@ function buildDemoJob(text, aiSummary) {
   const salaryMatch = text.match(/(?:₹|\$)\s?[\d,.]+(?:\s*[-–]\s*(?:₹|\$)?\s?[\d,.]+)?\s*(?:LPA|per year|annually)?/i);
   const skills = ["React", "TypeScript", "JavaScript", "Python", "Java", "AWS", "SQL", "Node.js", "CRM", "ERP", "Enterprise sales", "Account planning", "Financial Services", "Machine Learning", "Computer Vision", "Data Science", "Deep Learning", "Accounting", "Finance", "US GAAP", "SOX", "CPA", "Excel", "NetSuite", "Workiva", "SEC reporting", "Data governance", "Distributed systems", "C++", "Privacy", "Application Security", "Cyber Security", "Vulnerability Management", "OWASP", "Penetration Testing", "Code Reviews", "Risk Analysis", "APIs", "Cloud"];
   const detectedSkills = skills.filter((skill) => normalizedText.includes(skill.toLowerCase()));
+  const fallbackTitle = (applyingTitleMatch?.[1] || headingMatch?.[1] || titleMatch?.[0] || text.trim().split(/[!?\n]/)[0]).replace(/^#+\s*/, "").trim();
   return {
-    title: (applyingTitleMatch?.[1] || headingMatch?.[1] || titleMatch?.[0] || text.trim().split(/[!?\n]/)[0]).replace(/^#+\s*/, "").trim().slice(0, 70) || "Entered job posting",
-    company: companyMatch?.[1]?.trim() || "Company not identified",
+    title: explicitRoleMatch?.[0]?.trim() || (fallbackTitle && !/^download\b/i.test(fallbackTitle) ? fallbackTitle : "Job title not listed").slice(0, 70),
+    company: (companyMatch?.[1] || companyMatch?.[0] || "").trim() || "Company not identified",
     location: locationHeaderMatch?.[1]?.trim() || (workdayLocationMatch ? "United States" : locationMatch?.[0]) || "Location not listed",
     workMode: workModeMatch ? (workModeMatch[1].toLowerCase() === "work from home" ? "Work from home" : workModeMatch[1]) : "Work mode not listed",
     employmentType: employmentMatch?.[1] || "Employment type not listed",
@@ -339,6 +394,15 @@ function Pill({ t, children, tone }) {
       {children}
     </span>
   );
+}
+
+function formatSkillLabel(skill) {
+  const value = String(skill ?? "").trim();
+  if (!value) return "";
+  if (/[A-Z]/.test(value) || /\d/.test(value) || value.includes(".") || value.includes("/") || value.includes("-") || value.includes("_") || value.includes(" ")) {
+    return value;
+  }
+  return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
 function SectionLabel({ t, children }) {
@@ -471,7 +535,7 @@ function JobSummary({ t, job }) {
           {summaryExpanded ? "Hide summary" : "View full summary"}
         </button>
       )}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
+      {/* <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
         {facts.map((f) => (
           <span
             key={f.label}
@@ -487,6 +551,22 @@ function JobSummary({ t, job }) {
           >
             {f.label}
           </span>
+        ))}
+      </div> */}
+    </div>
+  );
+}
+
+function SkillsSection({ t, skills }) {
+  const visibleSkills = [...new Set((skills || []).map((skill) => formatSkillLabel(skill)).filter(Boolean))];
+  if (!visibleSkills.length) return null;
+
+  return (
+    <div>
+      <SectionLabel t={t}>Skills</SectionLabel>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
+        {visibleSkills.map((skill) => (
+          <Pill key={skill} t={t} tone="green">{skill}</Pill>
         ))}
       </div>
     </div>
@@ -568,8 +648,8 @@ function MatchSection({ t, resumeState, matchTier, setMatchTier, onUploadClick, 
           skillsMatched: matchResult.matched_keywords || [],
           skillsMissing: matchResult.missing_keywords || [],
           tier: matchResult.score >= 70 ? "strong" : matchResult.score >= 40 ? "partial" : "weak",
-          experienceFit: "Not evaluated",
-          locationFit: "Not evaluated",
+          experienceFit: (matchResult.matched_keywords?.length || 0) + (matchResult.missing_keywords?.length || 0) >= 3 ? (matchResult.score >= 70 ? "Strong" : matchResult.score >= 40 ? "Moderate" : "Limited") : "Not evaluated",
+          locationFit: (matchResult.matched_keywords?.length || 0) + (matchResult.missing_keywords?.length || 0) >= 3 ? (matchResult.score >= 60 ? "Likely compatible" : matchResult.score >= 30 ? "Needs review" : "Low signal") : "Not evaluated",
           summary: matchResult.missing_keywords?.length
             ? `Your resume matches ${matchResult.matched_count} job keywords. Review the missing keywords below.`
             : "Your resume covers the detected job keywords.",
@@ -620,9 +700,8 @@ function MatchSection({ t, resumeState, matchTier, setMatchTier, onUploadClick, 
 
       <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 7 }}>
         {[
-          ["Skills matched", `${m.skillsMatched.length}/${m.skillsMatched.length + m.skillsMissing.length}`],
-          ["Experience fit", m.experienceFit],
-          ["Location fit", m.locationFit],
+          // ["Experience fit", m.experienceFit],
+          // ["Location fit", m.locationFit],
         ].map(([label, value]) => (
           <div key={label} style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5 }}>
             <span style={{ color: t.textSecondary }}>{label}</span>
@@ -710,42 +789,61 @@ function MatchSection({ t, resumeState, matchTier, setMatchTier, onUploadClick, 
    JOB OVERVIEW / SKILLS / WHY THIS VERDICT / SELECTED TEXT
 --------------------------------------------------------------------- */
 function JobOverview({ t, job }) {
+  const isPlaceholder = (value) => !value || value.toLowerCase().includes("not listed") || value.toLowerCase().includes("not identified");
   const locationFacts = [job.location, job.workMode, job.employmentType]
-    .filter((value) => value && !value.toLowerCase().includes("not listed"));
+    .filter((value) => value && !isPlaceholder(value));
   return (
     <div style={{ background: t.surface, border: `1px solid ${t.border}`, borderRadius: 16, padding: 16, boxShadow: t.shadowTight }}>
       <SectionLabel t={t}>Job overview</SectionLabel>
-      <div style={{ fontSize: 19, fontWeight: 700, color: t.textPrimary, lineHeight: 1.25, letterSpacing: "-0.01em" }}>{job.title}</div>
-      <div style={{ fontSize: 13.5, color: t.textSecondary, marginTop: 2 }}>{job.company}</div>
-      <div style={{ fontSize: 12, color: t.textMuted, marginTop: 6 }}>
-        {locationFacts.join(" · ") || "Job details not listed"}
-      </div>
+      {!isPlaceholder(job.title) && (
+        <div style={{ fontSize: 19, fontWeight: 700, color: t.textPrimary, lineHeight: 1.25, letterSpacing: "-0.01em" }}>{job.title}</div>
+      )}
+      {!isPlaceholder(job.company) && (
+        <div style={{ fontSize: 13.5, color: t.textSecondary, marginTop: 2 }}>{job.company}</div>
+      )}
+      {locationFacts.length > 0 && (
+        <div style={{ fontSize: 12, color: t.textMuted, marginTop: 6 }}>
+          {locationFacts.join(" · ")}
+        </div>
+      )}
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: 12,
-          marginTop: 14,
-          paddingTop: 14,
-          borderTop: `1px solid ${t.border}`,
-        }}
-      >
-        <div>
-          <div style={{ fontSize: 10.5, color: t.textMuted, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-            {job.duration && !job.duration.toLowerCase().includes("not listed") ? "Duration" : "Experience"}
+      {(() => {
+        const durationVal = !isPlaceholder(job.duration) ? job.duration : (!isPlaceholder(job.experience) ? job.experience : null);
+        const durationLabel = !isPlaceholder(job.duration) ? "Duration" : "Experience";
+        const salaryVal = !isPlaceholder(job.salary) ? job.salary : null;
+        if (!durationVal && !salaryVal) return null;
+        return (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: 12,
+              marginTop: 14,
+              paddingTop: 14,
+              borderTop: `1px solid ${t.border}`,
+            }}
+          >
+            {durationVal && (
+              <div>
+                <div style={{ fontSize: 10.5, color: t.textMuted, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  {durationLabel}
+                </div>
+                <div style={{ fontSize: 13.5, color: t.textPrimary, fontWeight: 600, marginTop: 3 }}>
+                  {durationVal}
+                </div>
+              </div>
+            )}
+            {salaryVal && (
+              <div>
+                <div style={{ fontSize: 10.5, color: t.textMuted, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  Salary
+                </div>
+                <div style={{ fontSize: 13.5, color: t.textPrimary, fontWeight: 600, marginTop: 3, fontVariantNumeric: "tabular-nums" }}>{salaryVal}</div>
+              </div>
+            )}
           </div>
-          <div style={{ fontSize: 13.5, color: t.textPrimary, fontWeight: 600, marginTop: 3 }}>
-            {job.duration && !job.duration.toLowerCase().includes("not listed") ? job.duration : job.experience}
-          </div>
-        </div>
-        <div>
-          <div style={{ fontSize: 10.5, color: t.textMuted, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-            Salary
-          </div>
-          <div style={{ fontSize: 13.5, color: t.textPrimary, fontWeight: 600, marginTop: 3, fontVariantNumeric: "tabular-nums" }}>{job.salary}</div>
-        </div>
-      </div>
+        );
+      })()}
     </div>
   );
 }
@@ -868,7 +966,7 @@ function EmptyState({ t, onSimulate }) {
           cursor: "pointer",
         }}
       >
-        Try demo selection
+        Enter job text
       </button>
     </div>
   );
@@ -930,7 +1028,274 @@ function LoadingState({ t, stage }) {
 /* ---------------------------------------------------------------------
    TOP BAR
 --------------------------------------------------------------------- */
-function TopBar({ t, onReset, onUploadClick, resumeState, onRemoveResume }) {
+function SettingsSheet({
+  t,
+  user,
+  resumeFileName,
+  onClose,
+  onLogin,
+  onUploadClick,
+  onLogout,
+  error,
+}) {
+  const rechargeUrl = `${window.location.origin}/recharge/index.html`;
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        inset: 0,
+        zIndex: 3,
+        background: t.bg,
+        padding: 16,
+        overflowY: "auto",
+      }}
+    >
+      {/* HEADER */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: 20,
+        }}
+      >
+        <div
+          style={{
+            fontSize: 18,
+            fontWeight: 700,
+            color: t.textPrimary,
+          }}
+        >
+          Settings
+        </div>
+
+        <button
+          onClick={onClose}
+          style={{
+            border: 0,
+            background: "none",
+            color: t.textMuted,
+            cursor: "pointer",
+          }}
+        >
+          <X size={20} />
+        </button>
+      </div>
+
+      {!user ? (
+        /* ================= LOGGED OUT ================= */
+        <button
+          onClick={onLogin}
+          className="btn-press"
+          style={{
+            width: "100%",
+            border: `1px solid ${t.border}`,
+            background: t.surface,
+            padding: 14,
+            borderRadius: 12,
+            cursor: "pointer",
+            color: t.textPrimary,
+            fontWeight: 650,
+            display: "flex",
+            justifyContent: "center",
+            gap: 8,
+          }}
+        >
+          <LogIn size={17} />
+          Continue with Google
+        </button>
+      ) : (
+        /* ================= LOGGED IN ================= */
+        <>
+          {/* ACCOUNT */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              padding: 14,
+              border: `1px solid ${t.border}`,
+              borderRadius: 14,
+              background: t.surfaceAlt,
+              marginBottom: 14,
+            }}
+          >
+            {/* Render an img with a fallback to initials avatar on error */}
+            <img
+              src={
+                user.picture ||
+                `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(
+                  user.name || "User"
+                )}`
+              }
+              alt={user.name}
+              onError={(e) => {
+                e.currentTarget.onerror = null;
+                e.currentTarget.src = `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(
+                  user.name || "User"
+                )}`;
+              }}
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: "50%",
+                objectFit: "cover",
+                border: `1px solid ${t.border}`,
+              }}
+            />
+
+            <div>
+              <div
+                style={{
+                  fontWeight: 700,
+                  color: t.textPrimary,
+                }}
+              >
+                {user.name}
+              </div>
+
+              <div
+                style={{
+                  color: t.textSecondary,
+                  fontSize: 12,
+                  marginTop: 3,
+                }}
+              >
+                {user.email}
+              </div>
+            </div>
+          </div>
+
+          {/* RESUME */}
+          <button
+            onClick={onUploadClick}
+            className="btn-press"
+            style={{
+              width: "100%",
+              border: `1px solid ${t.border}`,
+              background: t.surface,
+              padding: 13,
+              borderRadius: 12,
+              cursor: "pointer",
+              color: t.textPrimary,
+              textAlign: "left",
+            }}
+          >
+            <div
+              style={{
+                fontWeight: 650,
+              }}
+            >
+              Upload resume
+            </div>
+
+            <div
+              style={{
+                fontSize: 12,
+                color: t.textSecondary,
+                marginTop: 3,
+              }}
+            >
+              {resumeFileName || "PDF or DOCX — used for match analysis"}
+            </div>
+          </button>
+
+          {/* RECHARGE */}
+          <div
+            style={{
+              marginTop: 22,
+              fontSize: 13,
+              fontWeight: 700,
+              color: t.textPrimary,
+            }}
+          >
+            Recharge credits
+          </div>
+
+          <div
+            style={{
+              fontSize: 12,
+              color: t.textSecondary,
+              marginTop: 4,
+            }}
+          >
+            Every analysis uses 1 credit. Recharge on the JobLens recharge page.
+          </div>
+
+          <button
+            onClick={() =>
+              window.open(
+                rechargeUrl,
+                "_blank",
+                "noopener,noreferrer"
+              )
+            }
+            className="btn-press"
+            style={{
+              width: "100%",
+              marginTop: 10,
+              padding: 12,
+              border: 0,
+              borderRadius: 10,
+              background: t.accent,
+              color: "white",
+              fontWeight: 700,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+            }}
+          >
+            <ExternalLink size={16} />
+            Recharge credits
+          </button>
+
+          {/* ERROR */}
+          {error && (
+            <div
+              style={{
+                color: t.red.text,
+                fontSize: 12,
+                marginTop: 10,
+              }}
+            >
+              {error}
+            </div>
+          )}
+
+          {/* LOGOUT */}
+          <button
+            onClick={onLogout}
+            className="btn-press"
+            style={{
+              width: "100%",
+              height: 38,
+              marginTop: 20,
+              borderRadius: 10,
+              border: "1px solid #F0D2D2",
+              background: "#FFF7F7",
+              color: "#C62828",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 7,
+              fontSize: 12,
+              fontWeight: 650,
+              cursor: "pointer",
+            }}
+          >
+            <LogOut size={14} />
+            Log out
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
+function TopBar({ t, credits, onSettings }) {
   return (
     <div
       style={{
@@ -954,11 +1319,11 @@ function TopBar({ t, onReset, onUploadClick, resumeState, onRemoveResume }) {
         </div>
         <div style={{ display: "flex", gap: 6 }}>
           <button
-            onClick={onReset}
-            title="Reset demo"
+            onClick={onSettings}
+            title="Credits"
             className="btn-press"
             style={{
-              width: 28,
+              width: 58,
               height: 28,
               borderRadius: 8,
               border: `1px solid ${t.border}`,
@@ -970,48 +1335,53 @@ function TopBar({ t, onReset, onUploadClick, resumeState, onRemoveResume }) {
               cursor: "pointer",
             }}
           >
-            <RotateCcw size={13} />
+           <div
+  style={{
+    display: "flex",
+    alignItems: "center",
+    gap: 5,
+    padding: "4px 8px",
+    borderRadius: 8,
+    background: "#F0FDF7",
+    border: "1px solid #CDEFE0",
+  }}
+>
+  <Coins
+    size={13}
+    color="#16804F"
+    strokeWidth={2.4}
+  />
+
+  <span
+    style={{
+      fontSize: 11,
+      fontWeight: 700,
+      color: "#146C43",
+    }}
+  >
+    {credits}
+  </span>
+</div>
           </button>
-          {resumeState === "matched" && (
-            <button
-              onClick={onRemoveResume}
-              title="Remove resume"
-              className="btn-press"
-              style={{
-                width: 28,
-                height: 28,
-                borderRadius: 8,
-                border: `1px solid ${t.border}`,
-                background: t.surface,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: t.textMuted,
-                cursor: "pointer",
-              }}
-            >
-              <Trash2 size={13} />
-            </button>
-          )}
           <button
-            onClick={onUploadClick}
-            title={resumeState === "matched" ? "Replace resume" : "Upload resume"}
-            className="btn-press"
-            style={{
-              width: 28,
-              height: 28,
-              borderRadius: 8,
-              border: `1px solid ${resumeState === "matched" ? t.green.border : t.border}`,
-              background: resumeState === "matched" ? t.green.bg : t.surface,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: resumeState === "matched" ? t.green.text : t.textMuted,
-              cursor: "pointer",
-            }}
-          >
-            {resumeState === "uploading" ? <Loader2 size={13} className="animate-spin" /> : <UploadCloud size={13} />}
-          </button>
+  onClick={onSettings}
+  title="Settings"
+  className="btn-press"
+  style={{
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    border: `1px solid ${t.border}`,
+    background: t.surface,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    color: "#000",
+    cursor: "pointer",
+  }}
+>
+  <Settings size={13} />
+</button>
         </div>
       </div>
       <div style={{ height: 1, background: t.border, marginTop: 12 }} />
@@ -1034,12 +1404,28 @@ export default function JobLensPanel({ onAnalysisComplete }) {
   const [resumeState, setResumeState] = useState("empty");
   const [resumeFileName, setResumeFileName] = useState(null);
   const [resumeFile, setResumeFile] = useState(null);
+  const [resumeId, setResumeId] = useState(null);
+  const [resumeHydrated, setResumeHydrated] = useState(false);
   const [matchTier, setMatchTier] = useState("strong");
   const [liveAnalysis, setLiveAnalysis] = useState(null);
+  const [token, setToken] = useState(() => localStorage.getItem("joblens.token"));
+  const [user, setUser] = useState(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [accountError, setAccountError] = useState("");
   const analysisStarted = useRef(false);
   const fileInputRef = useRef(null);
   const chooseFile = () => fileInputRef.current?.click();
-
+const handleLogout = () => {
+  localStorage.removeItem("joblens.token");
+  setToken(null);
+  setUser(null);
+  setResumeId(null);
+  setResumeFileName(null);
+  setResumeFile(null);
+  setResumeState("empty");
+  setSettingsOpen(false);
+  clearResume();
+};
   const timers = useRef([]);
   const clearTimers = () => {
     timers.current.forEach(clearTimeout);
@@ -1047,21 +1433,46 @@ export default function JobLensPanel({ onAnalysisComplete }) {
   };
 
   const startAnalysis = async (text = selectionText) => {
+    if (!resumeHydrated) {
+      console.warn("startAnalysis: resume hydration not complete yet");
+      return;
+    }
+    if (!token) { setSettingsOpen(true); setAccountError("Sign in with Google to analyze jobs."); return; }
+
+    // If we have a token but no user yet (still hydrating), fetch the current user
+    if (!user) {
+      try {
+        const freshUser = await getCurrentUser(token);
+        setUser(freshUser);
+        if ((freshUser.credits || 0) < 1) {
+          setSettingsOpen(true);
+          setAccountError("No credits left. Recharge to continue.");
+          return;
+        }
+      } catch (err) {
+        setSettingsOpen(true);
+        setAccountError("Sign in with Google to analyze jobs.");
+        return;
+      }
+    } else if (user.credits < 1) {
+      setSettingsOpen(true);
+      setAccountError("No credits left. Recharge to continue.");
+      return;
+    }
     setScreen("loading");
     setLoadStage(0);
     clearTimers();
     try {
-      const result = await analyzeDemoJob(text);
-      const jobSkills = result?.groq?.job?.skills;
-      const matchResult = resumeFile ? await matchDemoResume(text, resumeFile, jobSkills) : null;
-      setLiveAnalysis({ ...result, resume_match: matchResult, demoText: text });
+      const result = await analyzeJob(text, resumeId, token);
+      setLiveAnalysis({ ...result, demoText: text });
+      setUser((current) => current ? { ...current, credits: Math.max(0, current.credits - 1) } : current);
       onAnalysisComplete?.(result);
     } catch (error) {
       setLiveAnalysis({
         classification: "uncertain",
         score: 0,
         groq: { summary: `AI analysis unavailable: ${error.message}` },
-        reasons: ["Check that the backend is running and GROQ_API_KEY is valid"],
+        reasons: [error.message],
         ml: { available: false },
         demoText: text,
       });
@@ -1072,63 +1483,82 @@ export default function JobLensPanel({ onAnalysisComplete }) {
   };
 
   useEffect(() => {
-    if (initialSelection && !analysisStarted.current) {
-      analysisStarted.current = true;
-      startAnalysis(initialSelection);
-    }
-  }, []);
+    if (!resumeHydrated || !initialSelection || analysisStarted.current) return;
+    analysisStarted.current = true;
+    startAnalysis(initialSelection);
+  }, [resumeHydrated, initialSelection]);
 
-  useEffect(() => {
-    if (initialSelection && resumeFile && !liveAnalysis?.resume_match) startAnalysis(initialSelection);
-  }, [resumeFile]);
-
-  const startResumeUpload = (file) => {
+  const startResumeUpload = async (file) => {
     if (!file) return;
+    if (!token) { setSettingsOpen(true); setAccountError("Sign in before uploading a resume."); return; }
     setResumeState("uploading");
     setResumeFileName(file.name);
-    setResumeFile(file);
-    const reader = new FileReader();
-    reader.onload = async () => {
-      await saveResume({ name: file.name, type: file.type, size: file.size, lastModified: file.lastModified, data: reader.result });
+    try {
+      const uploaded = await uploadResume(file, token);
+        console.log("startResumeUpload: uploaded resume id", uploaded?.id);
+      const resumeRecord = { id: uploaded.id, filename: file.name, uploaded_at: new Date().toISOString() };
+      const persisted = await saveResume(resumeRecord);
+        if (!persisted) {
+          console.warn("startResumeUpload: saveResume returned false");
+          setAccountError("Resume uploaded, but browser storage failed. Please retry.");
+        } else {
+          console.log("startResumeUpload: resume persisted locally", resumeRecord);
+        }
+      setResumeFile(file);
+      setResumeId(uploaded.id);
       setResumeState("matched");
-    };
-    reader.onerror = () => setResumeState("empty");
-    reader.readAsDataURL(file);
+    } catch (error) { setResumeState("empty"); setAccountError(error.message); }
   };
 
   const removeResume = () => {
     setResumeState("empty");
     setResumeFileName(null);
+    setResumeId(null);
+    setResumeFile(null);
     clearResume();
-  };
-
-  const reset = () => {
-    clearTimers();
-    setScreen("empty");
-    setSelectionText(DEFAULT_SELECTION);
-    setLiveAnalysis(null);
-    setResumeState("empty");
-    setResumeFileName(null);
-    setVerdictKey("genuine");
   };
 
   useEffect(() => {
     let cancelled = false;
-    loadResume().then((resume) => {
-      if (cancelled || !resume) return;
-      setResumeFileName(resume.name);
-      setResumeState("matched");
-      if (resume.data) {
-        fetch(resume.data).then((response) => response.blob()).then((blob) => {
-          if (!cancelled) setResumeFile(new File([blob], resume.name, { type: resume.type }));
-        });
+    const hydrateSavedResume = async () => {
+      try {
+        const savedResume = await loadResume();
+        if (cancelled) return;
+        if (savedResume?.id) {
+          setResumeId(savedResume.id);
+          setResumeFileName(savedResume.filename || "Saved resume");
+          setResumeState("matched");
+        } else {
+          setResumeId(null);
+          setResumeFileName(null);
+          setResumeState("empty");
+        }
+      } catch (error) {
+        console.warn("Resume hydration failed:", error);
+        if (!cancelled) {
+          setResumeId(null);
+          setResumeFileName(null);
+          setResumeState("empty");
+        }
+      } finally {
+        if (!cancelled) setResumeHydrated(true);
       }
-    });
+    };
+
+    if (token) getCurrentUser(token).then((data) => !cancelled && setUser(data)).catch(() => { localStorage.removeItem("joblens.token"); setToken(null); });
+    hydrateSavedResume();
+    const onAuth = (event) => {
+      if (event.data?.type !== "JOBLENS_AUTH" || !event.data.token) return;
+      localStorage.setItem("joblens.token", event.data.token); setToken(event.data.token); setAccountError("");
+      getCurrentUser(event.data.token).then(setUser).catch((error) => setAccountError(error.message));
+    };
+    window.addEventListener("message", onAuth);
     return () => {
       cancelled = true;
       clearTimers();
+      window.removeEventListener("message", onAuth);
     };
-  }, []);
+  }, [token]);
 
   const verdict = liveAnalysis?.classification
     ? {
@@ -1139,19 +1569,23 @@ export default function JobLensPanel({ onAnalysisComplete }) {
       }
     : VERDICTS[verdictKey];
   const aiJob = liveAnalysis?.groq?.job;
-  const displayJob = aiJob
+  const jobFromApi = aiJob
     ? {
-        title: aiJob.title && aiJob.title !== "Not listed" ? aiJob.title : "Job title not listed",
-        company: aiJob.company || "Company not identified",
-        location: aiJob.location || "Location not listed",
-        workMode: aiJob.work_mode || "Work mode not listed",
-        employmentType: aiJob.employment_type || "Employment type not listed",
-        experience: aiJob.experience || "Experience not listed",
-        duration: aiJob.duration || "Duration not listed",
-        salary: aiJob.salary || "Salary not listed",
-        skills: aiJob.skills?.length ? aiJob.skills : [],
+        title: !isPlaceholderJobValue(aiJob.title) ? aiJob.title : "Job title not listed",
+        company: !isPlaceholderJobValue(aiJob.company) ? aiJob.company : "Company not identified",
+        location: !isPlaceholderJobValue(aiJob.location) ? aiJob.location : "Location not listed",
+        workMode: !isPlaceholderJobValue(aiJob.work_mode) ? aiJob.work_mode : "Work mode not listed",
+        employmentType: !isPlaceholderJobValue(aiJob.employment_type) ? aiJob.employment_type : "Employment type not listed",
+        experience: !isPlaceholderJobValue(aiJob.experience) ? aiJob.experience : "Experience not listed",
+        duration: !isPlaceholderJobValue(aiJob.duration) ? aiJob.duration : "Duration not listed",
+        salary: !isPlaceholderJobValue(aiJob.salary) ? aiJob.salary : "Salary not listed",
+        skills: Array.isArray(aiJob.skills) ? aiJob.skills.filter((skill) => !isPlaceholderJobValue(skill)) : [],
         summary: liveAnalysis.groq?.summary || "No summary available.",
       }
+    : null;
+
+  const displayJob = jobFromApi && !isPlaceholderJobValue(jobFromApi.title) && !isPlaceholderJobValue(jobFromApi.company)
+    ? jobFromApi
     : liveAnalysis?.demoText
     ? buildDemoJob(liveAnalysis.demoText, liveAnalysis.groq?.summary)
     : JOB;
@@ -1209,11 +1643,23 @@ export default function JobLensPanel({ onAnalysisComplete }) {
 
         <TopBar
           t={t}
-          onReset={reset}
-          onUploadClick={chooseFile}
-          resumeState={resumeState}
-          onRemoveResume={removeResume}
+          credits={user?.credits ?? 0}
+          onSettings={() => setSettingsOpen(true)}
         />
+
+        {settingsOpen && <SettingsSheet
+  t={t}
+  user={user}
+  resumeFileName={resumeFileName}
+  onClose={() => {
+    setSettingsOpen(false);
+    setAccountError("");
+  }}
+  onLogin={openGoogleLogin}
+  onUploadClick={chooseFile}
+  onLogout={handleLogout}
+  error={accountError}
+/>}
 
         <div
           style={{
@@ -1246,6 +1692,7 @@ export default function JobLensPanel({ onAnalysisComplete }) {
               <TrustVerdict t={t} verdict={verdict} />
               <JobOverview t={t} job={displayJob} />
               <JobSummary t={t} job={displayJob} />
+              {/* <SkillsSection t={t} skills={displayJob.skills} /> */}
               <MatchSection
                 t={t}
                 resumeState={resumeState}
