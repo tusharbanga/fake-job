@@ -14,7 +14,7 @@ python -m pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
 ```
 
-Google must allow `http://localhost:8000/auth/google/callback`. The extension can be loaded unpacked from `extension/` in Chrome. The exact selection debounce is owned by `extension/content.js`: every selection clears the previous timer and schedules analysis after exactly 5000 ms.
+Google must allow `https://fake-job-api-xeuu.onrender.com/auth/google/callback`. The extension can be loaded unpacked from `extension/` in Chrome. The exact selection debounce is owned by `extension/content.js`: every selection clears the previous timer and schedules analysis after exactly 5000 ms.
 
 ## Credits and Razorpay
 

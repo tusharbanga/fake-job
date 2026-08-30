@@ -1,4 +1,4 @@
-const API_BASE_URL = "http://localhost:8000";
+const API_BASE_URL = "https://fake-job-api-xeuu.onrender.com";
 
 function responseError(data, fallback) {
   if (typeof data?.detail === "string") return data.detail;

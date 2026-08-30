@@ -1,4 +1,4 @@
-const API_BASE_URL = "http://localhost:8000";
+const API_BASE_URL = "https://fake-job-api-xeuu.onrender.com";
 const STORAGE_KEY = "joblens_token";
 const CREDITS_PER_RUPEE = 8;
 const PRESET_AMOUNTS = [25, 50, 100, 200, 500, 1000];

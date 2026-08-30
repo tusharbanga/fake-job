@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     jwt_expires_minutes: int = 10080
     google_client_id: str = ""
     google_client_secret: str = ""
-    google_redirect_uri: str = "http://localhost:8000/auth/google/callback"
+    google_redirect_uri: str = "https://fake-job-api-xeuu.onrender.com/auth/google/callback"
     frontend_redirect_uri: str = "http://localhost:3000"
     razorpay_key_id: str = ""
     razorpay_key_secret: str = ""

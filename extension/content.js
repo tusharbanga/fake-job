@@ -7,7 +7,7 @@ let panelWindow = null;
 function showPanel(text) {
   // Prefer injecting an inline iframe (restores previous UX). If injection fails
   // (exceptions or popup/blocking), fall back to opening a popup window.
-  const url = `http://127.0.0.1:5173/?selection=${encodeURIComponent(text)}`;
+  const url = `https://fake-job.vercel.app/?selection=${encodeURIComponent(text)}`;
   try {
     if (panelFrame && panelFrame.parentNode) panelFrame.remove();
     panelFrame = document.createElement('iframe');
@@ -47,7 +47,7 @@ document.addEventListener("selectionchange", scheduleAnalysis);
 document.addEventListener("mouseup", scheduleAnalysis);
 
 // Relay resume persistence between the JobLens iframe and chrome.storage.local.
-// The iframe (http://127.0.0.1:5173) cannot call chrome.storage directly since
+// The iframe (https://fake-job.vercel.app) cannot call chrome.storage directly since
 // it's not an extension page, and its own localStorage gets partitioned per
 // top-level site by the browser — so a resume saved on one job site would not
 // show up on another. chrome.storage.local is extension-scoped and global.
