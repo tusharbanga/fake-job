@@ -51,3 +51,11 @@ Screenshots and other visual examples of the project can be added here.
 ## Known Issues
 
 Some features may require further testing and improvements.
+
+## Contributing
+
+Suggestions and improvements are welcome. Please create an issue or submit a pull request.
+
+## License
+
+This project is for learning and development purposes.
