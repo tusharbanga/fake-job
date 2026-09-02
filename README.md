@@ -75,3 +75,7 @@ The project can be modified and improved as new requirements are added.
 ## Requirements
 
 A basic development environment is required to run and work on this project.
+
+## Notes
+
+This README will be updated as the project continues to develop.
