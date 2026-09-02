@@ -41,3 +41,9 @@ API-related functionality can be added and documented here as the project grows.
 ## Screenshots
 
 Screenshots and other visual examples of the project can be added here.
+
+## Future Improvements
+
+- Improve the user interface
+- Add more features
+- Improve performance
