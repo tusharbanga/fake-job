@@ -59,3 +59,7 @@ Suggestions and improvements are welcome. Please create an issue or submit a pul
 ## License
 
 This project is for learning and development purposes.
+
+## Project Goal
+
+This project is being developed to practice building a simple and useful application.
