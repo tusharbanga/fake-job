@@ -33,3 +33,7 @@ The project is organized into separate files and folders to keep the code clean 
 ## Configuration
 
 Update the required configuration values before running the project.
+
+## API
+
+API-related functionality can be added and documented here as the project grows.
