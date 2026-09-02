@@ -25,3 +25,7 @@ Clone the repository and open the project locally.
 ## Usage
 
 Run the project locally and follow the instructions provided by the application.
+
+## Project Structure
+
+The project is organized into separate files and folders to keep the code clean and easy to maintain.
