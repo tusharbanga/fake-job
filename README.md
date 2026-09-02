@@ -71,3 +71,7 @@ Make sure the required tools are installed before starting the project.
 ## Development
 
 The project can be modified and improved as new requirements are added.
+
+## Requirements
+
+A basic development environment is required to run and work on this project.
