@@ -47,3 +47,7 @@ Screenshots and other visual examples of the project can be added here.
 - Improve the user interface
 - Add more features
 - Improve performance
+
+## Known Issues
+
+Some features may require further testing and improvements.
