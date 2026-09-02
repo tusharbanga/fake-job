@@ -37,3 +37,7 @@ Update the required configuration values before running the project.
 ## API
 
 API-related functionality can be added and documented here as the project grows.
+
+## Screenshots
+
+Screenshots and other visual examples of the project can be added here.
