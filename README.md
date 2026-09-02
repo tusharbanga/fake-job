@@ -63,3 +63,7 @@ This project is for learning and development purposes.
 ## Project Goal
 
 This project is being developed to practice building a simple and useful application.
+
+## Getting Started
+
+Make sure the required tools are installed before starting the project.
