@@ -21,3 +21,7 @@ Clone the repository and open the project locally.
 1. Clone the repository
 2. Open the project folder
 3. Run the application
+
+## Usage
+
+Run the project locally and follow the instructions provided by the application.
